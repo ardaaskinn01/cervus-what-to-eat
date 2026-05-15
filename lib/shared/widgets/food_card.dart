@@ -30,6 +30,7 @@ class FoodCard extends StatelessWidget {
             offset: const Offset(0, 15),
           )
         ],
+        border: Border.all(color: (isDark ? Colors.white : Colors.black).withOpacity(0.05)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -52,7 +53,6 @@ class FoodCard extends StatelessWidget {
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
                 ),
               ),
-              // Abstract Shape
               Positioned(
                 top: -30,
                 right: -30,
@@ -145,7 +145,45 @@ class FoodCard extends StatelessWidget {
                   ),
                 const SizedBox(height: 28),
 
-                // 5. DESCRIPTION
+                // 5. INGREDIENTS
+                if (food.ingredients.isNotEmpty) ...[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.shopping_basket_outlined, size: 16, color: AppColors.textSecondary),
+                      const SizedBox(width: 8),
+                      Text(
+                        'MALZEMELER',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.textSecondary.withOpacity(0.6),
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.center,
+                      children: food.ingredients.map((ing) => Text(
+                        ing + (ing == food.ingredients.last ? '' : ' • '),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textSecondary.withOpacity(0.9),
+                        ),
+                      )).toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                ],
+
+                // 6. DESCRIPTION
                 Text(
                   food.description,
                   textAlign: TextAlign.center,
@@ -157,12 +195,12 @@ class FoodCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 32),
 
-                // 6. PROGRESS INDICATORS (Enhanced)
+                // 6. PROGRESS INDICATORS
                 Row(
                   children: [
-                    Expanded(child: _buildProgressCard('KALORİ', _calorieColor(food.calorieRange), 0.65)),
+                    Expanded(child: _buildProgressCard('KALORİ', _calorieColor(food.calorieRange, isDark), 0.65, isDark)),
                     const SizedBox(width: 16),
-                    Expanded(child: _buildProgressCard('UYGUNLUK', Colors.amber, 0.85)),
+                    Expanded(child: _buildProgressCard('UYGUNLUK', isDark ? Colors.amber.shade300 : Colors.amber.shade700, 0.85, isDark)),
                   ],
                 ),
               ],
@@ -195,13 +233,13 @@ class FoodCard extends StatelessWidget {
     );
   }
 
-  Widget _buildProgressCard(String label, Color color, double percent) {
+  Widget _buildProgressCard(String label, Color color, double percent, bool isDark) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.05),
+        color: color.withOpacity(isDark ? 0.15 : 0.05),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.1)),
+        border: Border.all(color: color.withOpacity(isDark ? 0.25 : 0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -215,7 +253,7 @@ class FoodCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
               value: percent,
-              backgroundColor: color.withOpacity(0.1),
+              backgroundColor: color.withOpacity(isDark ? 0.2 : 0.1),
               color: color,
               minHeight: 6,
             ),
@@ -225,11 +263,11 @@ class FoodCard extends StatelessWidget {
     );
   }
 
-  Color _calorieColor(String range) {
+  Color _calorieColor(String range, bool isDark) {
     switch (range.toLowerCase()) {
-      case 'düşük': return Colors.green;
-      case 'orta': return Colors.orange;
-      case 'yüksek': return Colors.red;
+      case 'düşük': return isDark ? Colors.green.shade300 : Colors.green.shade600;
+      case 'orta': return isDark ? Colors.orange.shade300 : Colors.orange.shade600;
+      case 'yüksek': return isDark ? Colors.red.shade300 : Colors.red.shade600;
       default: return Colors.grey;
     }
   }

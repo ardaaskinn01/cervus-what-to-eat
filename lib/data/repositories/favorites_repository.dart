@@ -5,6 +5,7 @@ import '../../core/providers/shared_prefs_provider.dart';
 import '../models/favorite_list_model.dart';
 import '../models/food_model.dart';
 import '../datasources/food_dataset.dart';
+import '../../features/nearby/nearby_state.dart';
 
 final favoritesRepositoryProvider = Provider<FavoritesRepository>((ref) {
   return FavoritesRepository(ref.read(sharedPreferencesProvider));
@@ -13,6 +14,7 @@ final favoritesRepositoryProvider = Provider<FavoritesRepository>((ref) {
 class FavoritesRepository {
   final SharedPreferences _prefs;
   static const _favoritesKey = 'favorites_list';
+  static const _favoritePlacesKey = 'favorite_places_list';
   static const _customListsKey = 'custom_favorites_lists';
 
   FavoritesRepository(this._prefs);
@@ -72,5 +74,33 @@ class FavoritesRepository {
       FavoriteListModel(id: 'l2', name: 'Ucuz Yemekler', emoji: '💸', colorInt: 0xFFFFC107, foodIds: []),
       FavoriteListModel(id: 'l3', name: 'Hafta Sonu', emoji: '🎉', colorInt: 0xFFE91E63, foodIds: []),
     ];
+  }
+
+  // --- Favorite Places ---
+
+  List<NearbyPlace> getAllFavoritePlaces() {
+    final str = _prefs.getString(_favoritePlacesKey);
+    if (str == null) return [];
+    final decoded = jsonDecode(str) as List;
+    return decoded.map((e) => NearbyPlace.fromJson(e)).toList();
+  }
+
+  void addFavoritePlace(NearbyPlace place) {
+    var places = getAllFavoritePlaces();
+    if (!places.any((p) => p.placeId == place.placeId)) {
+      places.add(place);
+      _prefs.setString(_favoritePlacesKey, jsonEncode(places.map((p) => p.toJson()).toList()));
+    }
+  }
+
+  void removeFavoritePlace(String placeId) {
+    var places = getAllFavoritePlaces();
+    places.removeWhere((p) => p.placeId == placeId);
+    _prefs.setString(_favoritePlacesKey, jsonEncode(places.map((p) => p.toJson()).toList()));
+  }
+
+  bool isFavoritePlace(String placeId) {
+    var places = getAllFavoritePlaces();
+    return places.any((p) => p.placeId == placeId);
   }
 }

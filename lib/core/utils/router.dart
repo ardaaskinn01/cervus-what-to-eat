@@ -6,11 +6,11 @@ import '../providers/shared_prefs_provider.dart';
 import '../../features/home/home_screen.dart';
 import '../../features/suggestion/suggestion_screen.dart';
 import '../../features/favorites/favorites_screen.dart';
-import '../../features/history/history_screen.dart';
 import '../../features/settings/settings_screen.dart';
 import '../../features/onboarding/onboarding_screen.dart';
 import '../../features/splash/splash_screen.dart';
 import '../../features/weekly_plan/weekly_plan_screen.dart';
+import '../../features/nearby/nearby_screen.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 final GlobalKey<NavigatorState> _sectionANavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'sectionANav');
@@ -65,6 +65,10 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: '/weekly_plan',
                 builder: (context, state) => const WeeklyPlanScreen(),
               ),
+              GoRoute(
+                path: '/nearby',
+                builder: (context, state) => const NearbyScreen(),
+              ),
             ],
           ),
           StatefulShellBranch(
@@ -75,14 +79,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/history',
-                builder: (context, state) => const HistoryScreen(),
-              ),
-            ],
-          ),
+
           StatefulShellBranch(
             routes: [
               GoRoute(

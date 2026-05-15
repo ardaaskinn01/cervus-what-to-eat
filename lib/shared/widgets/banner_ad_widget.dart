@@ -23,7 +23,9 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
   }
 
   void _loadAd() {
-    final adUnitId = Platform.isAndroid ? 'ca-app-pub-3940256099942544/6300978111' : 'ca-app-pub-3940256099942544/2934735716';
+    final adUnitId = Platform.isAndroid 
+        ? 'ca-app-pub-2073707860224174/8920349800' 
+        : 'ca-app-pub-2073707860224174/9860684934';
     
     _bannerAd = BannerAd(
       adUnitId: adUnitId,

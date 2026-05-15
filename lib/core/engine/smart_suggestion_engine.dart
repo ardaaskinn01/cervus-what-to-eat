@@ -15,7 +15,10 @@ class SmartSuggestionEngine {
     List<_FoodItemScore> scores = [];
     final random = Random();
 
-    for (var food in foodDataset) {
+    // Dataset'i karıştır (Eşit skorlarda sıra adaleti için)
+    final shuffledDataset = List<FoodModel>.from(foodDataset)..shuffle(random);
+
+    for (var food in shuffledDataset) {
       // 1. Hard Filter: Eşleşmeyenleri baştan ele
       bool match = true;
       if (filter.mealType != null && !food.mealTypes.contains(filter.mealType)) match = false;
@@ -25,75 +28,72 @@ class SmartSuggestionEngine {
       if (filter.dietTag != null && !food.dietTags.contains(filter.dietTag)) match = false;
       if (filter.cuisine != null && food.cuisine.toLowerCase() != filter.cuisine!.toLowerCase()) match = false;
 
-      // Profile Strict Restrictions
-      if (profile != null) {
-        // Allergies
-        if (profile.allergies.isNotEmpty) {
-           for (var a in profile.allergies) {
-             if (food.ingredients.any((i) => i.toLowerCase().contains(a.toLowerCase()))) {
-               match = false;
-               break;
-             }
-           }
-        }
-        // Diet Type (Simple match, real app needs better mapping)
-        if (profile.dietType != 'Normal' && !food.dietTags.contains(profile.dietType)) {
-          match = false;
+      // Alerji kontrolü (Katı kural)
+      if (profile != null && profile.allergies.isNotEmpty) {
+        for (var a in profile.allergies) {
+          if (food.ingredients.any((i) => i.toLowerCase().contains(a.toLowerCase()))) {
+            match = false;
+            break;
+          }
         }
       }
 
-      if (!match) continue; // Filtreye uymuyorsa puanlama bile yapma
+      if (!match) continue;
 
-      double score = 10.0; // Temel başlangıç puanı
+      // 2. Dinamik Puanlama
+      double score = 20.0; // Daha yüksek temel puan
 
-      // Filtre eşleşmesi: Her uyan filtre eklentisi (opsiyonel extra) için +10 puan
-      if (filter.mealType != null) score += 10;
-      if (filter.place != null) score += 10;
-      if (filter.maxTime != null) score += 10;
-      if (filter.budget != null) score += 10;
-      if (filter.dietTag != null) score += 10;
-      if (filter.cuisine != null) score += 10;
+      // Filtre Uyumu (Tercih edilenler için ekstra puan)
+      if (filter.moodTag != null && food.moodTags.contains(filter.moodTag)) score += 15;
+      if (filter.weatherTag != null && (food.weatherTags.contains(filter.weatherTag) || food.weatherTags.contains('Her_hava'))) score += 10;
 
-      // Mood uyumu
-      if (filter.moodTag != null && food.moodTags.contains(filter.moodTag)) {
-        score += 8;
+      // Diyet Uyumu (Profildeki diyet tipine tam uyanlar kazansın)
+      if (profile != null && profile.dietType != 'Normal') {
+        if (food.dietTags.contains(profile.dietType)) {
+          score += 25;
+        } else {
+          // Eğer diyet tipi uymuyorsa şansını çok azalt (Katı değil ama çok düşük ihtimal)
+          score *= 0.1;
+        }
       }
 
-      // Hava uyumu
-      if (filter.weatherTag != null && (food.weatherTags.contains(filter.weatherTag) || food.weatherTags.contains('Her_hava'))) {
-        score += 5;
-      }
-
-      // Favoriler
+      // Favoriler (+%50 şans)
       if (favIds.contains(food.id)) {
-        score += 15;
+        score *= 1.5;
       }
 
-      // Bugün yenildi mi
+      // 3. Tekrar Önleme (DÜZELTME: İsim bazlı kontrol de eklendi)
+      
+      // Bugün yenildi mi? (Neredeyse imkansız yap)
       if (todayEatenIds.contains(food.id)) {
-        score -= 100;
+        score *= 0.01;
+      }
+      
+      // Son önerilenler arasında mı? (Penaltıyı ağırlaştır)
+      final lastSuggestedFood = excludeIds.isNotEmpty 
+          ? shuffledDataset.firstWhere((f) => f.id == excludeIds.last, orElse: () => food) 
+          : null;
+
+      if (excludeIds.contains(food.id) || (lastSuggestedFood != null && lastSuggestedFood.name == food.name)) {
+        // En son önerilen mi? (İsim veya ID bazlı)
+        if (excludeIds.isNotEmpty && (excludeIds.last == food.id || lastSuggestedFood?.name == food.name)) {
+          score *= 0.0; // Son yemeği (ve aynısını) ÇIKARMA
+        } else {
+          // Listenin başında mı (daha eski mi)?
+          int index = excludeIds.indexOf(food.id);
+          double penaltyFactor = 0.05 + (index * 0.1); // Penaltıyı çok daha sert yap
+          score *= penaltyFactor;
+        }
       }
 
-      // Son 5 öneride göründü mü
-      if (excludeIds.contains(food.id)) {
-        score -= 50;
-      }
+      // 4. Çeşitlilik ve Sürpriz Faktörü
+      
+      // PopularityScore etkisi
+      score *= (1.0 + (food.popularityScore * 0.3));
 
-      // PopularityScore etkisi (x1.2 çarpan, veya skora oranlı eklenti)
-      // Popularity 0.0 ile 1.0 arası bir değer. Popülerliği yüksek olan 1.2 kat şanslı.
-      score *= (1.0 + (food.popularityScore * 0.2));
-
-      // Sürpriz faktörü %20 rastgelelik ekle (Puanın +- %20'si kadar randomize)
-      double randomFactor = 0.8 + (random.nextDouble() * 0.4); // 0.8 ile 1.2 arası
-      score *= randomFactor;
-
-      // Profile Calorie Impact
-      if (profile != null) {
-         // This is a naive logic mapping string (Düşük/Orta/Yüksek) to numbers
-         // Realistically, high dailyCalorieGoal prefers high/orta calorie range.
-         if (profile.dailyCalorieGoal < 1800 && food.calorieRange == 'Yüksek') score *= 0.5;
-         if (profile.dailyCalorieGoal > 2800 && food.calorieRange == 'Düşük') score *= 0.5;
-      }
+      // Kaos Faktörü: %0 ile %50 arası tamamen rastgele ek puan
+      // Bu, her zaman en yüksek puanın kazanmamasını sağlar.
+      score += random.nextDouble() * 15;
 
       if (score > 0) {
         scores.add(_FoodItemScore(food, score));
@@ -114,7 +114,7 @@ class SmartSuggestionEngine {
       }
     }
 
-    return scores.first.food; // Fallback
+    return scores.first.food;
   }
 }
 

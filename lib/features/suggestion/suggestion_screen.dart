@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:confetti/confetti.dart';
+import '../../core/providers/filter_provider.dart';
 import 'suggestion_notifier.dart';
 import '../../shared/widgets/food_card.dart';
 import '../../shared/widgets/filter_bottom_sheet.dart';
 import '../../core/theme/colors.dart';
 import '../home/home_notifier.dart';
-import '../favorites/favorites_notifier.dart';
 
 class SuggestionScreen extends ConsumerStatefulWidget {
   const SuggestionScreen({super.key});
@@ -18,12 +17,8 @@ class SuggestionScreen extends ConsumerStatefulWidget {
 }
 
 class _SuggestionScreenState extends ConsumerState<SuggestionScreen> {
-  late ConfettiController _confettiController;
-
   @override
   void initState() {
-    super.initState();
-    _confettiController = ConfettiController(duration: const Duration(seconds: 2));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (ref.read(suggestionNotifierProvider).currentFood == null) {
         ref.read(suggestionNotifierProvider.notifier).suggestNext();
@@ -33,7 +28,6 @@ class _SuggestionScreenState extends ConsumerState<SuggestionScreen> {
 
   @override
   void dispose() {
-    _confettiController.dispose();
     super.dispose();
   }
 
@@ -42,6 +36,19 @@ class _SuggestionScreenState extends ConsumerState<SuggestionScreen> {
     final state = ref.watch(suggestionNotifierProvider);
     final homeState = ref.watch(homeNotifierProvider);
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    
+    // Listen for filter changes and refresh
+    ref.listen(filterProvider, (_, __) {
+      ref.read(suggestionNotifierProvider.notifier).suggestNext();
+    });
+
+    ref.listen(homeNotifierProvider, (prev, next) {
+      if (prev?.selectedMealType != next.selectedMealType || 
+          prev?.selectedMood != next.selectedMood) {
+        ref.read(suggestionNotifierProvider.notifier).suggestNext();
+      }
+    });
 
     return Scaffold(
       extendBodyBehindAppBar: true,
@@ -71,12 +78,12 @@ class _SuggestionScreenState extends ConsumerState<SuggestionScreen> {
           Positioned(
             top: -100,
             left: -50,
-            child: _buildGlow(250, AppColors.primary.withOpacity(0.12)),
+            child: _buildGlow(250, AppColors.primary.withOpacity(isDark ? 0.2 : 0.12)),
           ),
           Positioned(
             bottom: 200,
             right: -50,
-            child: _buildGlow(300, AppColors.secondary.withOpacity(0.08)),
+            child: _buildGlow(300, AppColors.secondary.withOpacity(isDark ? 0.15 : 0.08)),
           ),
 
           SafeArea(
@@ -124,23 +131,22 @@ class _SuggestionScreenState extends ConsumerState<SuggestionScreen> {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
                         _buildRoundButton(
                           icon: Icons.close_rounded,
                           color: Colors.redAccent,
+                          isDark: isDark,
                           onTap: () => ref.read(suggestionNotifierProvider.notifier).suggestNext(),
-                        ),
-                        
-                        _buildPrimaryAction(
-                          onTap: _handleYedim,
                         ),
 
                         _buildRoundButton(
                           icon: Icons.favorite_rounded,
                           color: Colors.blueAccent,
+                          isDark: isDark,
                           onTap: () {
                             ref.read(suggestionNotifierProvider.notifier).markAsFavorite();
+                            if (!context.mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text('Favorilere eklendi! ✨')),
                             );
@@ -152,18 +158,6 @@ class _SuggestionScreenState extends ConsumerState<SuggestionScreen> {
                   const SizedBox(height: 100), // Spacing for bottom nav / ad
                 ],
               ),
-            ),
-          ),
-
-          // Confetti
-          Align(
-            alignment: Alignment.topCenter,
-            child: ConfettiWidget(
-              confettiController: _confettiController,
-              blastDirection: math.pi / 2,
-              emissionFrequency: 0.1,
-              numberOfParticles: 20,
-              colors: const [Colors.orange, Colors.red, Colors.blue, Colors.green],
             ),
           ),
         ],
@@ -188,80 +182,16 @@ class _SuggestionScreenState extends ConsumerState<SuggestionScreen> {
     );
   }
 
-  Widget _buildPrimaryAction({required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 64,
-        width: 140,
-        decoration: BoxDecoration(
-          gradient: AppColors.primaryGradient,
-          borderRadius: BorderRadius.circular(32),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primary.withOpacity(0.3),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
-            )
-          ],
-        ),
-        child: const Center(
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Yedim',
-                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              SizedBox(width: 8),
-              Icon(Icons.check_circle_outline_rounded, color: Colors.white),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _handleYedim() async {
-    _confettiController.play();
-    final newBadges = await ref.read(suggestionNotifierProvider.notifier).markAsEaten();
-    
-    if (!mounted) return;
-
-    if (newBadges.isNotEmpty) {
-      await showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Tebrikler! 🎉'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Harika bir seçim yaptın. Yeni rozet kazandın:'),
-              const SizedBox(height: 16),
-              Text(newBadges.join(', '), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.primary)),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Harika!')),
-          ],
-        ),
-      );
-    }
-
-    if (!mounted) return;
-    ref.read(suggestionNotifierProvider.notifier).suggestNext();
-  }
-
-  Widget _buildRoundButton({required IconData icon, required Color color, required VoidCallback onTap}) {
+  Widget _buildRoundButton({required IconData icon, required Color color, required void Function() onTap, required bool isDark}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         height: 60,
         width: 60,
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withOpacity(isDark ? 0.15 : 0.1),
           shape: BoxShape.circle,
-          border: Border.all(color: color.withOpacity(0.2), width: 1.5),
+          border: Border.all(color: color.withOpacity(isDark ? 0.25 : 0.2), width: 1.5),
         ),
         child: Icon(icon, color: color, size: 28),
       ),

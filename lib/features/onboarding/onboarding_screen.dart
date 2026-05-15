@@ -17,6 +17,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final PageController _controller = PageController();
   final TextEditingController _nameController = TextEditingController();
   int _currentPage = 0;
+  bool _isNameValid = false;
 
   final List<Color> _bgColors = [
     AppColors.primary.withOpacity(0.05),
@@ -24,6 +25,20 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     Colors.purple.withOpacity(0.05),
     AppColors.primary.withOpacity(0.1),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController.addListener(_validateName);
+  }
+
+  void _validateName() {
+    final name = _nameController.text.trim();
+    final isValid = name.length >= 2;
+    if (isValid != _isNameValid) {
+      setState(() => _isNameValid = isValid);
+    }
+  }
 
   @override
   void dispose() {
@@ -34,9 +49,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   void _finish() async {
     final name = _nameController.text.trim();
-    if (name.isNotEmpty) {
-      ref.read(settingsNotifierProvider.notifier).updateName(name);
-    }
+    // Default to 'Misafir' if empty (though UI should prevent it now)
+    ref.read(settingsNotifierProvider.notifier).updateName(name.isEmpty ? 'Misafir' : name);
     
     ref.read(sharedPreferencesProvider).setBool('onboarding_done', true);
     context.go('/home');
@@ -135,23 +149,25 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         Expanded(
                           child: Container(
                             decoration: BoxDecoration(
-                              gradient: AppColors.primaryGradient,
+                              gradient: _isNameValid 
+                                ? AppColors.primaryGradient 
+                                : LinearGradient(colors: [Colors.grey.shade400, Colors.grey.shade500]),
                               borderRadius: BorderRadius.circular(28),
-                              boxShadow: [
+                              boxShadow: _isNameValid ? [
                                 BoxShadow(
                                   color: AppColors.primary.withOpacity(0.3),
                                   blurRadius: 12,
                                   offset: const Offset(0, 6),
                                 )
-                              ],
+                              ] : [],
                             ),
                             child: ElevatedButton(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.transparent,
                                 shadowColor: Colors.transparent,
                               ),
-                              onPressed: _finish,
-                              child: const Text('Başla', style: TextStyle(color: Colors.white)),
+                              onPressed: _isNameValid ? _finish : null,
+                              child: const Text('Başla', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                             ),
                           ),
                         ),
@@ -219,7 +235,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.person_pin_rounded, size: 56, color: AppColors.primary),
-          ).animate(onPlay: (c) => c.repeat()).shimmer(duration: 2.seconds),
+          ).animate().scale(duration: 600.ms, curve: Curves.bounceOut).fadeIn(),
           const SizedBox(height: 48),
           const Text(
             'Tanışalım!',
@@ -232,7 +248,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           ),
           const SizedBox(height: 32),
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
             decoration: BoxDecoration(
               color: isDark ? AppColors.cardDark : Colors.white,
               borderRadius: BorderRadius.circular(24),
@@ -244,19 +260,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 )
               ],
             ),
-            child: Column(
-              children: [
-                TextField(
-                  controller: _nameController,
-                  autofocus: true,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                  decoration: const InputDecoration(
-                    hintText: 'İsminiz',
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-              ],
+            child: TextField(
+              controller: _nameController,
+              autofocus: false,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              decoration: const InputDecoration(
+                hintText: 'İsminiz',
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+              ),
             ),
           ).animate().slideY(begin: 0.2).fadeIn(delay: 200.ms),
           const SizedBox(height: 120), // Space for indicators

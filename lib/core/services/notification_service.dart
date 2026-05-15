@@ -1,5 +1,5 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter/material.dart';
+import 'dart:io';
 
 class NotificationService {
   static final NotificationService instance = NotificationService._();
@@ -10,13 +10,36 @@ class NotificationService {
   Future<void> init() async {
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosInit = DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
+      requestAlertPermission: false, // Don't ask immediately
+      requestBadgePermission: false,
+      requestSoundPermission: false,
     );
 
     const initSettings = InitializationSettings(android: androidInit, iOS: iosInit);
     await _plugin.initialize(initSettings);
+  }
+
+  Future<bool> requestPermissions() async {
+    if (Platform.isIOS) {
+      final result = await _plugin
+          .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()
+          ?.requestPermissions(alert: true, badge: true, sound: true);
+      return result ?? false;
+    } else if (Platform.isAndroid) {
+      final result = await _plugin
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          ?.requestNotificationsPermission();
+      return result ?? false;
+    }
+    return false;
+  }
+
+  Future<void> scheduleDailySuggestion(String name, String time) async {
+    // Basic show for demonstration, would normally use TZDateTime for scheduling
+    await showInstantNotification(
+      'Yemek Vakti! 🍽️',
+      'Merhaba $name! Bugün ne yemek istersin? Senin için harika önerilerim var.',
+    );
   }
 
   Future<void> showInstantNotification(String title, String body) async {

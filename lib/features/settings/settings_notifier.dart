@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/user_profile_model.dart';
 import '../../data/repositories/settings_repository.dart';
-import '../history/history_notifier.dart';
+import '../../core/services/notification_service.dart';
 
 final settingsNotifierProvider = StateNotifierProvider<SettingsNotifier, UserProfileModel>((ref) {
   return SettingsNotifier(ref);
@@ -25,7 +25,18 @@ class SettingsNotifier extends StateNotifier<UserProfileModel> {
     _save(state.copyWith(isDarkMode: isDark));
   }
 
-  void toggleNotifications(bool enabled, String? time) {
+  Future<void> toggleNotifications(bool enabled, String? time) async {
+    if (enabled) {
+      final granted = await NotificationService.instance.requestPermissions();
+      if (!granted) {
+        // Permission denied, don't enable
+        return;
+      }
+      
+      // Schedule initial notification as a welcome
+      await NotificationService.instance.scheduleDailySuggestion(state.name, time ?? '12:00');
+    }
+    
     _save(state.copyWith(notificationsEnabled: enabled, notificationTime: time));
   }
 
@@ -39,13 +50,6 @@ class SettingsNotifier extends StateNotifier<UserProfileModel> {
 
   void updateCalorieGoal(int goal) {
     _save(state.copyWith(dailyCalorieGoal: goal));
-  }
-
-  void clearHistory() {
-    _repo.clearHistory();
-    // We should invalidate or reset the history provider
-    // In Riverpod 2.0 we could do `_ref.invalidate(historyNotifierProvider)`
-    _ref.invalidate(historyNotifierProvider);
   }
 
   void _save(UserProfileModel newModel) {

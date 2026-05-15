@@ -7,13 +7,31 @@ import 'core/providers/shared_prefs_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/services/ad_service.dart';
 import 'core/services/notification_service.dart';
+import 'core/services/dashboard_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
   final prefs = await SharedPreferences.getInstance();
   
-  await NotificationService.instance.init();
-  await AdService.instance.init(prefs);
+  // Graceful initialization of services
+  try {
+    await NotificationService.instance.init();
+  } catch (e) {
+    debugPrint('Notification Service init error: $e');
+  }
+
+  try {
+    await AdService.instance.init(prefs);
+  } catch (e) {
+    debugPrint('Ad Service init error: $e');
+  }
+
+  try {
+    await DashboardService().init();
+  } catch (e) {
+    debugPrint('Dashboard Service init error: $e');
+  }
 
   runApp(
     ProviderScope(

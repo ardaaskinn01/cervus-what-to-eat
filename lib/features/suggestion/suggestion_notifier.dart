@@ -1,10 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../data/models/food_model.dart';
 import 'suggestion_state.dart';
 import '../../core/providers/filter_provider.dart';
 import '../../data/repositories/food_repository.dart';
 import '../home/home_notifier.dart';
 import '../favorites/favorites_notifier.dart';
-import '../history/history_notifier.dart';
 import '../settings/settings_notifier.dart';
 import '../../core/services/ad_service.dart';
 
@@ -19,10 +19,10 @@ class SuggestionNotifier extends StateNotifier<SuggestionState> {
 
   Future<void> suggestNext() async {
     // BUG 1: Separate Ad logic from State updates
-    await AdService.instance.onSuggestionRequested(() {});
+    AdService.instance.onSuggestionRequested(() {});
     
     if (!mounted) return;
-    state = state.copyWith(isLoading: true);
+    state = state.copyWith(isLoading: true, currentFood: null);
     
     // Simulate thinking/loading
     await Future.delayed(const Duration(milliseconds: 400));
@@ -33,25 +33,20 @@ class SuggestionNotifier extends StateNotifier<SuggestionState> {
     final profile = _ref.read(settingsNotifierProvider);
 
     final filter = globalFilter.copyWith(
-      mealType: homeState.selectedMealType ?? globalFilter.mealType,
-      moodTag: homeState.selectedMood ?? globalFilter.moodTag,
+      mealType: globalFilter.mealType ?? homeState.selectedMealType,
+      moodTag: globalFilter.moodTag ?? homeState.selectedMood,
     );
 
     final repo = _ref.read(foodRepositoryProvider);
     var nextFood = repo.getRandomFood(filter, state.excludeIds, profile: profile);
 
-    // If nothing found and excludeIds is full, maybe we need to clear excludeIds.
-    if (nextFood == null && state.excludeIds.isNotEmpty) {
-       nextFood = repo.getRandomFood(filter, [], profile: profile);
-       if (!mounted) return;
-       state = state.copyWith(excludeIds: []); // Reset exclude ids
-    }
+    // If no food is found, nextFood is correctly null and it will show "Not found"
 
     if (!mounted) return;
     if (nextFood != null) {
       final newExcludeIds = List<String>.from(state.excludeIds)..add(nextFood.id);
-      if (newExcludeIds.length > 5) {
-        newExcludeIds.removeAt(0); // Keep last 5
+      if (newExcludeIds.length > 20) {
+        newExcludeIds.removeAt(0); // Keep last 20
       }
       state = state.copyWith(
         currentFood: nextFood,
@@ -69,12 +64,11 @@ class SuggestionNotifier extends StateNotifier<SuggestionState> {
     }
   }
 
-  // BUG 2: Make it async to handle badge popups in UI
-  Future<List<String>> markAsEaten() async {
-    if (state.currentFood != null) {
-       final badges = _ref.read(historyNotifierProvider.notifier).addEntry(state.currentFood!, true);
-       return badges;
-    }
-    return [];
+  void setCurrentFood(FoodModel food) {
+    state = state.copyWith(currentFood: food);
+  }
+
+  void clearExcludeIds() {
+    state = state.copyWith(excludeIds: []);
   }
 }

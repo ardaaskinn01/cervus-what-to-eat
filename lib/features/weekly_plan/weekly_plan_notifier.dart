@@ -4,6 +4,8 @@ import '../../data/models/filter_model.dart';
 import '../../data/repositories/weekly_plan_repository.dart';
 import '../../data/repositories/food_repository.dart';
 import '../settings/settings_notifier.dart';
+import '../favorites/favorites_notifier.dart';
+import 'package:intl/intl.dart';
 
 final weeklyPlanNotifierProvider = StateNotifierProvider<WeeklyPlanNotifier, WeeklyPlanModel>((ref) {
   return WeeklyPlanNotifier(ref);
@@ -29,9 +31,49 @@ class WeeklyPlanNotifier extends StateNotifier<WeeklyPlanModel> {
     _repo.savePlan(newModel);
   }
 
+  void clearSlot(int day, String mealType) {
+    var newPlanMap = Map<int, Map<String, String>>.from(state.plan);
+    if (newPlanMap.containsKey(day)) {
+      newPlanMap[day]?.remove(mealType);
+    }
+    final newModel = WeeklyPlanModel(plan: newPlanMap);
+    state = newModel;
+    _repo.savePlan(newModel);
+  }
+
+  void clearAll() {
+    final newModel = WeeklyPlanModel(plan: {});
+    state = newModel;
+    _repo.savePlan(newModel);
+  }
+
+  void suggestForSlot(int day, String mealType) {
+    final foodRepo = _ref.read(foodRepositoryProvider);
+    final profile = _ref.read(settingsNotifierProvider);
+    
+    // Gather context for better suggestion quality
+    final favorites = _ref.read(favoritesNotifierProvider).favorites.map((f) => f.id).toList();
+    // Avoid duplicate foods in the same weekly plan
+    final existingIds = <String>[];
+    state.plan.values.forEach((meals) => existingIds.addAll(meals.values));
+
+    final filter = FilterModel(mealType: mealType);
+    final suggested = foodRepo.getRandomFood(
+      filter, 
+      existingIds, 
+      profile: profile,
+      favIds: favorites,
+    );
+
+    if (suggested != null) {
+      updateSlot(day, mealType, suggested.id);
+    }
+  }
+
   void autoFillPlan() {
     final foodRepo = _ref.read(foodRepositoryProvider);
     final profile = _ref.read(settingsNotifierProvider);
+    final favorites = _ref.read(favoritesNotifierProvider).favorites.map((f) => f.id).toList();
     
     var newPlanMap = <int, Map<String, String>>{};
     List<String> excludeIds = [];
@@ -39,31 +81,20 @@ class WeeklyPlanNotifier extends StateNotifier<WeeklyPlanModel> {
     for (int day = 1; day <= 7; day++) {
       newPlanMap[day] = {};
       
-      // Sabah
-      var breakfast = foodRepo.getRandomFood(FilterModel(mealType: 'Kahvaltı'), excludeIds, profile: profile);
-      if (breakfast != null) {
-        newPlanMap[day]!['Sabah'] = breakfast.id;
-        excludeIds.add(breakfast.id);
-      }
-
-      // Öğle
-      var lunch = foodRepo.getRandomFood(FilterModel(mealType: 'Öğle'), excludeIds, profile: profile);
-      if (lunch != null) {
-        newPlanMap[day]!['Öğle'] = lunch.id;
-        excludeIds.add(lunch.id);
-      }
-
-      // Akşam
-      var dinner = foodRepo.getRandomFood(FilterModel(mealType: 'Akşam'), excludeIds, profile: profile);
-      if (dinner != null) {
-        newPlanMap[day]!['Akşam'] = dinner.id;
-        excludeIds.add(dinner.id);
+      for (var meal in ['Kahvaltı', 'Öğle', 'Akşam']) {
+        var suggested = foodRepo.getRandomFood(
+          FilterModel(mealType: meal), 
+          excludeIds, 
+          profile: profile,
+          favIds: favorites,
+        );
+        if (suggested != null) {
+          newPlanMap[day]![meal] = suggested.id;
+          excludeIds.add(suggested.id);
+        }
       }
       
-      // Keep exclude list manageable so we don't run out of foods
-      if (excludeIds.length > 10) {
-        excludeIds.removeRange(0, 5);
-      }
+      if (excludeIds.length > 20) excludeIds.removeRange(0, 10);
     }
 
     final newModel = WeeklyPlanModel(plan: newPlanMap);

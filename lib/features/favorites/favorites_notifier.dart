@@ -4,6 +4,7 @@ import 'favorites_state.dart';
 import '../../data/models/favorite_list_model.dart';
 import '../../data/repositories/favorites_repository.dart';
 import '../../data/datasources/food_dataset.dart';
+import '../../features/nearby/nearby_state.dart';
 
 final favoritesNotifierProvider = StateNotifierProvider<FavoritesNotifier, FavoritesState>((ref) {
   return FavoritesNotifier(ref.read(favoritesRepositoryProvider));
@@ -20,8 +21,13 @@ class FavoritesNotifier extends StateNotifier<FavoritesState> {
   void _loadData() {
     state = state.copyWith(
       favorites: _repo.getAllFavorites(),
+      favoritePlaces: _repo.getAllFavoritePlaces(),
       customLists: _repo.getCustomLists(),
     );
+  }
+
+  void togglePlacesTab(bool showPlaces) {
+    state = state.copyWith(showPlaces: showPlaces);
   }
 
   void selectList(String? listId) {
@@ -93,5 +99,20 @@ class FavoritesNotifier extends StateNotifier<FavoritesState> {
     
     _repo.saveCustomLists(lists);
     _loadData();
+  }
+
+  // --- Favorite Places ---
+
+  void toggleFavoritePlace(NearbyPlace place) {
+    if (_repo.isFavoritePlace(place.placeId)) {
+      _repo.removeFavoritePlace(place.placeId);
+    } else {
+      _repo.addFavoritePlace(place);
+    }
+    _loadData();
+  }
+
+  bool isFavoritePlace(String placeId) {
+    return _repo.isFavoritePlace(placeId);
   }
 }

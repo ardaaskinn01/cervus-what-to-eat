@@ -15,6 +15,7 @@ class MainWrapper extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
       body: navigationShell,
@@ -23,7 +24,8 @@ class MainWrapper extends StatelessWidget {
         children: [
           const BannerAdWidget(),
           Container(
-            height: 70,
+            padding: EdgeInsets.only(bottom: bottomPadding),
+            height: 70 + bottomPadding,
             decoration: BoxDecoration(
               color: isDark ? AppColors.cardDark : Colors.white,
               boxShadow: [
@@ -39,8 +41,7 @@ class MainWrapper extends StatelessWidget {
               children: [
                 _buildNavItem(0, Icons.dashboard_rounded, 'Ana Sayfa'),
                 _buildNavItem(1, Icons.favorite_rounded, 'Favoriler'),
-                _buildNavItem(2, Icons.history_rounded, 'Geçmiş'),
-                _buildNavItem(3, Icons.settings_rounded, 'Ayarlar'),
+                _buildNavItem(2, Icons.settings_rounded, 'Ayarlar'),
               ],
             ),
           ),

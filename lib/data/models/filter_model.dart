@@ -41,6 +41,16 @@ class FilterModel {
     );
   }
 
+  FilterModel setMealType(String? value) => FilterModel(mealType: value, place: place, maxTime: maxTime, budget: budget, dietTag: dietTag, cuisine: cuisine, moodTag: moodTag, weatherTag: weatherTag);
+  FilterModel setPlace(String? value) => FilterModel(mealType: mealType, place: value, maxTime: maxTime, budget: budget, dietTag: dietTag, cuisine: cuisine, moodTag: moodTag, weatherTag: weatherTag);
+  FilterModel setMaxTime(int? value) => FilterModel(mealType: mealType, place: place, maxTime: value, budget: budget, dietTag: dietTag, cuisine: cuisine, moodTag: moodTag, weatherTag: weatherTag);
+  FilterModel setBudget(String? value) => FilterModel(mealType: mealType, place: place, maxTime: maxTime, budget: value, dietTag: dietTag, cuisine: cuisine, moodTag: moodTag, weatherTag: weatherTag);
+  FilterModel setDietTag(String? value) => FilterModel(mealType: mealType, place: place, maxTime: maxTime, budget: budget, dietTag: value, cuisine: cuisine, moodTag: moodTag, weatherTag: weatherTag);
+  FilterModel setCuisine(String? value) => FilterModel(mealType: mealType, place: place, maxTime: maxTime, budget: budget, dietTag: dietTag, cuisine: value, moodTag: moodTag, weatherTag: weatherTag);
+  FilterModel setMoodTag(String? value) => FilterModel(mealType: mealType, place: place, maxTime: maxTime, budget: budget, dietTag: dietTag, cuisine: cuisine, moodTag: value, weatherTag: weatherTag);
+  FilterModel setWeatherTag(String? value) => FilterModel(mealType: mealType, place: place, maxTime: maxTime, budget: budget, dietTag: dietTag, cuisine: cuisine, moodTag: moodTag, weatherTag: value);
+
+
   bool get isEmpty =>
       mealType == null &&
       place == null &&

@@ -24,4 +24,5 @@ class AppStrings {
   static const String error = 'Bir hata oluştu.';
   static const String cancel = 'İptal';
   static const String save = 'Kaydet';
+  static const String googleMapsApiKey = 'AIzaSyCDCQvS9HZvl36qtrwgtzOsUvxZYG15728';
 }

@@ -78,21 +78,21 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
                   padding: const EdgeInsets.all(20),
                   children: [
                     _buildSection('Öğün', ['Kahvaltı', 'Öğle', 'Akşam', 'Atıştırmalık', 'Tatlı'], 
-                      tempFilter.mealType, (val) => setState(() => tempFilter = tempFilter.copyWith(mealType: val))),
+                      tempFilter.mealType, (val) => setState(() => tempFilter = tempFilter.setMealType(val))),
                     
                     _buildSection('Yer', ['Evde', 'Dışarıda', 'Ofiste', 'Öğrenci Evi'], 
-                      tempFilter.place, (val) => setState(() => tempFilter = tempFilter.copyWith(place: val))),
+                      tempFilter.place, (val) => setState(() => tempFilter = tempFilter.setPlace(val))),
                     
                     _buildTimeSection(),
                     
                     _buildSection('Bütçe', ['Ucuz', 'Orta', 'Pahalı'], 
-                      tempFilter.budget, (val) => setState(() => tempFilter = tempFilter.copyWith(budget: val))),
+                      tempFilter.budget, (val) => setState(() => tempFilter = tempFilter.setBudget(val))),
                     
                     _buildSection('Beslenme Tipi', ['Sağlıklı', 'Proteinli', 'Hafif', 'Doyurucu', 'Kaçamak', 'Vejetaryen'], 
-                      tempFilter.dietTag, (val) => setState(() => tempFilter = tempFilter.copyWith(dietTag: val))),
+                      tempFilter.dietTag, (val) => setState(() => tempFilter = tempFilter.setDietTag(val))),
                     
                     _buildSection('Mutfak Tipi', ['Türk', 'İtalyan', 'Fast Food', 'Asya', 'Fit Yemek'], 
-                      tempFilter.cuisine, (val) => setState(() => tempFilter = tempFilter.copyWith(cuisine: val))),
+                      tempFilter.cuisine, (val) => setState(() => tempFilter = tempFilter.setCuisine(val))),
                     
                     const SizedBox(height: 80), // Padding for bottom actions
                   ],
@@ -189,7 +189,7 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
             return ChoiceChip(
               label: Text(t >= 45 ? '$t+ dk' : '$t dk'),
               selected: isSelected,
-              onSelected: (selected) => setState(() => tempFilter = tempFilter.copyWith(maxTime: selected ? t : null)),
+              onSelected: (selected) => setState(() => tempFilter = tempFilter.setMaxTime(selected ? t : null)),
               selectedColor: AppColors.secondary,
               labelStyle: TextStyle(
                 color: isSelected ? Colors.white : null,

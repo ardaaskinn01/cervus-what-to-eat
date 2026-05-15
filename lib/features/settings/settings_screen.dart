@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'settings_notifier.dart';
-import '../history/gamification_notifier.dart';
 import '../../core/theme/colors.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -16,9 +15,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsNotifierProvider);
-    final gamification = ref.watch(gamificationNotifierProvider);
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
@@ -29,12 +26,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         padding: const EdgeInsets.fromLTRB(20, 10, 20, 120),
         children: [
           // 1. PROFIL KARTI
-          _buildProfileCard(settings.name, gamification.xp, theme),
+          _buildProfileCard(settings.name, settings.dietType, settings.allergies, theme),
           const SizedBox(height: 32),
 
           // 2. UYGULAMA TERCİHLERİ
           _buildGroupTitle('Uygulama'),
           _buildSettingsGroup([
+            _buildSettingRow(
+              icon: Icons.person_outline_rounded,
+              color: Colors.orange,
+              title: 'İsim Değiştir',
+              subtitle: settings.name,
+              onTap: () => _editName(context, settings.name),
+            ),
             _buildSettingRow(
               icon: Icons.dark_mode_outlined,
               color: Colors.purple,
@@ -67,7 +71,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               onTap: () => _showDietPicker(context, settings.dietType),
             ),
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -76,7 +80,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: ['Fındık', 'Gluten', 'Deniz ürünü', 'Yumurta'].map((allergy) {
+                    children: ['Gluten', 'Süt Ürünü', 'Yumurta', 'Fındık', 'Fıstık', 'Balık', 'Kabuklu Deniz Ürünleri', 'Soya', 'Hardal'].map((allergy) {
                       final isSelected = settings.allergies.contains(allergy);
                       return FilterChip(
                         label: Text(allergy),
@@ -95,65 +99,43 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ], theme),
           const SizedBox(height: 24),
 
-          // 4. TEHLİKELİ BÖLGE
-          _buildGroupTitle('Veri Yönetimi'),
-          _buildSettingsGroup([
-            _buildSettingRow(
-              icon: Icons.delete_sweep_outlined,
-              color: Colors.red,
-              title: 'Geçmişi Temizle',
-              titleColor: Colors.red,
-              onTap: () => _confirmClearHistory(context),
-            ),
-          ], theme),
 
-          const SizedBox(height: 48),
-          const Center(
-            child: Text(
-              'Versiyon 1.2.0\nBugün Ne Yesem? • 2024',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 12, height: 1.5),
-            ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildProfileCard(String name, int xp, ThemeData theme) {
+  Widget _buildProfileCard(String name, String dietType, List<String> allergies, ThemeData theme) {
     final initial = name.isNotEmpty ? name[0].toUpperCase() : 'U';
+    final subText = allergies.isNotEmpty ? '$dietType • ${allergies.length} Alerji' : dietType;
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
         gradient: AppColors.primaryGradient,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
             color: AppColors.primary.withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
           )
         ],
       ),
       child: Row(
         children: [
           CircleAvatar(
-            radius: 35,
+            radius: 28,
             backgroundColor: Colors.white.withOpacity(0.2),
-            child: Text(initial, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white)),
+            child: Text(initial, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
           ),
-          const SizedBox(width: 20),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(name.isEmpty ? 'Kullanıcı' : name, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                Text(name.isEmpty ? 'Kullanıcı' : name, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
-                  child: Text('$xp XP • Gurme Seviyesi', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
-                ),
+                Text(subText, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500)),
               ],
             ),
           ),
@@ -222,6 +204,67 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  void _editName(BuildContext context, String currentName) {
+    final controller = TextEditingController(text: currentName);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(ctx).viewInsets.bottom,
+        ),
+        decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('İsim Güncelle', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 24),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                decoration: InputDecoration(
+                  hintText: 'Yeni İsminiz',
+                  filled: true,
+                  fillColor: AppColors.textSecondary.withOpacity(0.05),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(0, 56),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  onPressed: () {
+                    final newName = controller.text.trim();
+                    if (newName.length >= 2) {
+                      ref.read(settingsNotifierProvider.notifier).updateName(newName);
+                      Navigator.pop(ctx);
+                    }
+                  },
+                  child: const Text('Güncelle', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _showDietPicker(BuildContext context, String current) {
     final diets = ['Normal', 'Vejetaryen', 'Vegan', 'Glutensiz'];
     showModalBottomSheet(
@@ -244,23 +287,5 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  void _confirmClearHistory(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Emin misiniz?'),
-        content: const Text('Tüm yeme geçmişiniz silinecek. Bu işlem geri alınamaz.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('İptal')),
-          TextButton(
-            onPressed: () {
-              ref.read(settingsNotifierProvider.notifier).clearHistory();
-              Navigator.pop(ctx);
-            },
-            child: const Text('Sil', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
   }
-}
+

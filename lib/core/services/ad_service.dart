@@ -45,7 +45,7 @@ class AdService {
   void _loadInterstitialAd() {
     if (isPremium) return;
     InterstitialAd.load(
-      adUnitId: Platform.isAndroid ? 'ca-app-pub-3940256099942544/1033173712' : 'ca-app-pub-3940256099942544/4411468910',
+      adUnitId: Platform.isAndroid ? 'ca-app-pub-2073707860224174/4670414927' : 'ca-app-pub-2073707860224174/3197551152',
       request: const AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) => _interstitialAd = ad,

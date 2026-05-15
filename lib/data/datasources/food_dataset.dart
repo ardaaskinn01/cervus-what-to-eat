@@ -1,4 +1,6 @@
 import '../models/food_model.dart';
+import 'food_dataset_extended.dart';
+import 'food_dataset_extended_2.dart';
 
 final List<FoodModel> foodDataset = [
   // Kahvaltı (10)
@@ -372,4 +374,6 @@ final List<FoodModel> foodDataset = [
     ingredients: ['Muz', 'Elma', 'Portakal', 'Kivi'], description: 'Doğal şekerli ve vitaminli en sağlıklı hafif atıştırmalık.',
     imageEmoji: '🍎', moodTags: ['Hafif', 'Sağlıklı'], weatherTags: ['Her_hava'], calorieRange: 'Düşük', popularityScore: 0.78,
   ),
+  ...foodDatasetExtended,
+  ...foodDatasetExtended2,
 ];

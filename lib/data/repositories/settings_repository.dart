@@ -32,8 +32,4 @@ class SettingsRepository {
   void saveProfile(UserProfileModel profile) {
     _prefs.setString(_settingsKey, jsonEncode(profile.toJson()));
   }
-
-  void clearHistory() {
-    _prefs.remove('history_entries');
-  }
 }

@@ -2,32 +2,76 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/constants/app_strings.dart';
 import '../../core/theme/colors.dart';
 import '../../core/providers/filter_provider.dart';
-import '../../shared/widgets/banner_ad_widget.dart';
 import '../../features/settings/settings_notifier.dart';
 import '../../features/fridge/fridge_mode_sheet.dart';
+import '../suggestion/suggestion_state.dart';
 import 'home_notifier.dart';
 import 'home_state.dart';
+import '../../features/suggestion/suggestion_notifier.dart';
+import '../../core/services/location_service.dart';
+import '../../core/services/dashboard_service.dart';
+import '../../shared/widgets/filter_bottom_sheet.dart';
 
-class HomeScreen extends ConsumerWidget {
+final locationServiceProvider = Provider((ref) => LocationService.instance);
+
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  bool _dashboardLogged = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initDashboard();
+    });
+  }
+
+  Future<void> _initDashboard() async {
+    if (_dashboardLogged) return;
+    
+    final userProfile = ref.read(settingsNotifierProvider);
+    if (userProfile.name != null && userProfile.name!.isNotEmpty) {
+      // 1. Log Visit
+      await DashboardService().logVisit(
+        name: userProfile.name!,
+        additionalData: {
+          'dietType': userProfile.dietType,
+          'isDarkMode': userProfile.isDarkMode,
+          'notificationsEnabled': userProfile.notificationsEnabled,
+          'allergies': userProfile.allergies,
+        },
+      );
+      _dashboardLogged = true;
+
+      // 2. Check for Update
+      if (mounted) {
+        await DashboardService().checkForUpdate(context);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(homeNotifierProvider);
-    final userProfile = ref.watch(settingsNotifierProvider);
+    final userProfile = ref.read(settingsNotifierProvider);
     final globalFilter = ref.watch(filterProvider);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
     final List<Map<String, dynamic>> moods = [
       {'label': 'Enerjik', 'icon': Icons.bolt_rounded},
-      {'label': 'Rahatlatıcı', 'icon': Icons.spa_rounded},
+      {'label': 'Maceraperest', 'icon': Icons.explore_rounded},
       {'label': 'Konforlu', 'icon': Icons.home_rounded},
       {'label': 'Hafif', 'icon': Icons.eco_rounded},
-      {'label': 'Kutlama', 'icon': Icons.celebration_rounded},
+      {'label': 'Nostaljik', 'icon': Icons.history_rounded},
     ];
 
     final List<Map<String, dynamic>> mealTypes = [
@@ -66,41 +110,26 @@ class HomeScreen extends ConsumerWidget {
                       ),
                     ],
                   ),
-                  _buildProfileAvatar(userProfile.name),
-                ],
-              ).animate().fade().slideY(begin: -0.1),
-
-              const SizedBox(height: 8),
-              
-              // Filter Badge
-              if (!globalFilter.isEmpty)
-                Container(
-                  margin: const EdgeInsets.only(top: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
+                  Row(
                     children: [
-                      const Icon(Icons.tune_rounded, size: 14, color: AppColors.primary),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Aktif Filtreler Açık',
-                        style: TextStyle(
-                          color: AppColors.primary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      IconButton(
+                        icon: const Icon(Icons.tune_rounded, color: AppColors.primary),
+                        onPressed: () {
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (context) => const FilterBottomSheet(),
+                          );
+                        },
                       ),
                     ],
                   ),
-                ).animate().fade(),
+                ],
+              ).animate().fade().slideY(begin: -0.1),
 
               const SizedBox(height: 32),
 
-              // 2. MOOD SELECTOR
               Text(
                 'Nasıl hissediyorsun?',
                 style: theme.textTheme.titleLarge?.copyWith(fontSize: 18),
@@ -134,6 +163,11 @@ class HomeScreen extends ConsumerWidget {
                                 offset: const Offset(0, 4),
                               )
                           ],
+                          border: Border.all(
+                            color: isSelected 
+                              ? Colors.transparent 
+                              : (isDark ? Colors.white : Colors.black).withOpacity(0.05)
+                          ),
                         ),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -162,7 +196,6 @@ class HomeScreen extends ConsumerWidget {
 
               const SizedBox(height: 32),
 
-              // 3. MEAL FILTERS
               SizedBox(
                 height: 38,
                 child: ListView.builder(
@@ -176,25 +209,38 @@ class HomeScreen extends ConsumerWidget {
                       padding: const EdgeInsets.only(right: 10),
                       child: ChoiceChip(
                         showCheckmark: false,
-                        label: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              meal['icon'], 
-                              size: 16, 
-                              color: isSelected ? Colors.white : AppColors.textSecondary
-                            ),
-                            const SizedBox(width: 6),
-                            Text(meal['label']!),
-                          ],
+                        labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        label: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                meal['icon'], 
+                                size: 14, 
+                                color: isSelected ? Colors.white : AppColors.textSecondary
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                meal['label']!,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: isSelected ? Colors.white : AppColors.textSecondary,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                         selected: isSelected,
                         onSelected: (_) => ref.read(homeNotifierProvider.notifier).setMealType(meal['label']!),
                         selectedColor: AppColors.primary,
                         backgroundColor: Colors.transparent,
-                        labelStyle: TextStyle(
-                          color: isSelected ? Colors.white : AppColors.textSecondary,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                        side: BorderSide(
+                          color: isSelected 
+                            ? Colors.transparent 
+                            : theme.dividerColor.withOpacity(isDark ? 0.2 : 0.1)
                         ),
                       ),
                     );
@@ -204,11 +250,11 @@ class HomeScreen extends ConsumerWidget {
 
               const SizedBox(height: 40),
 
-              // 4. BANA ÖNER BUTONU
               GestureDetector(
-                onTap: () async {
-                  await ref.read(homeNotifierProvider.notifier).suggestFood();
-                  if (context.mounted) context.push('/suggestion');
+                onTap: () {
+                  // Clear previous suggestion to force refresh in SuggestionScreen
+                  ref.read(suggestionNotifierProvider.notifier).state = SuggestionState();
+                  context.push('/suggestion');
                 },
                 child: Container(
                   height: 65,
@@ -246,7 +292,6 @@ class HomeScreen extends ConsumerWidget {
 
               const SizedBox(height: 40),
 
-              // 5. FEATURE CARDS
               Row(
                 children: [
                   Expanded(
@@ -256,6 +301,7 @@ class HomeScreen extends ConsumerWidget {
                       subtitle: 'Fikir al',
                       icon: Icons.kitchen_outlined,
                       color: AppColors.secondary,
+                      isDark: isDark,
                       onTap: () => showModalBottomSheet(
                         context: context,
                         isScrollControlled: true,
@@ -272,49 +318,39 @@ class HomeScreen extends ConsumerWidget {
                       subtitle: 'Plan yap',
                       icon: Icons.calendar_today_outlined,
                       color: AppColors.primary,
+                      isDark: isDark,
                       onTap: () => context.push('/weekly_plan'),
                     ),
                   ),
                 ],
               ).animate().fade(delay: 400.ms).slideY(begin: 0.1),
 
+              const SizedBox(height: 16),
+
+              _buildActionCard(
+                context: context,
+                title: 'Dışarıdayım',
+                subtitle: 'Yakınındaki en iyi restoranları keşfet',
+                icon: Icons.location_on_rounded,
+                color: Colors.teal,
+                isDark: isDark,
+                onTap: () async {
+                  final locationService = ref.read(locationServiceProvider);
+                  final granted = await locationService.requestPermission();
+                  if (granted && context.mounted) {
+                    context.push('/nearby');
+                  } else if (context.mounted) {
+                    _showLocationDeniedDialog(context);
+                  }
+                },
+              ).animate().fade(delay: 450.ms).slideY(begin: 0.1),
+
               const SizedBox(height: 32),
 
-              // LAST SUGGESTED RECAP
-              if (state.lastSuggestedFood != null) ...[
-                Text(
-                  'Son Önerilen',
-                  style: theme.textTheme.titleLarge?.copyWith(fontSize: 18),
-                ),
-                const SizedBox(height: 16),
-                _buildLastSuggestedCard(theme, state),
-              ].animate().fade(delay: 500.ms),
-              
-              const SizedBox(height: 80), // Padding for Ad
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
-  Widget _buildProfileAvatar(String? name) {
-    final initial = name != null && name.isNotEmpty ? name[0].toUpperCase() : 'U';
-    return Container(
-      height: 48,
-      width: 48,
-      decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.1),
-        shape: BoxShape.circle,
-        border: Border.all(color: AppColors.primary.withOpacity(0.2), width: 2),
-      ),
-      child: Center(
-        child: Text(
-          initial,
-          style: const TextStyle(
-            color: AppColors.primary,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
+              
+              const SizedBox(height: 80),
+            ],
           ),
         ),
       ),
@@ -328,6 +364,7 @@ class HomeScreen extends ConsumerWidget {
     required IconData icon,
     required Color color,
     required VoidCallback onTap,
+    required bool isDark,
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -335,9 +372,9 @@ class HomeScreen extends ConsumerWidget {
         height: 110,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
+          color: color.withOpacity(isDark ? 0.15 : 0.08),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color.withOpacity(0.1)),
+          border: Border.all(color: color.withOpacity(isDark ? 0.2 : 0.1)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -363,53 +400,28 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildLastSuggestedCard(ThemeData theme, HomeState state) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.cardTheme.color,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: theme.dividerColor.withOpacity(0.05)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            height: 60,
-            width: 60,
-            decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(15),
-            ),
-            child: Center(
-              child: Text(state.lastSuggestedFood!.imageEmoji, style: const TextStyle(fontSize: 32)),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  state.lastSuggestedFood!.name,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${state.lastSuggestedFood!.timeMinutes} dk • ${state.lastSuggestedFood!.cuisine}',
-                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                ),
-              ],
-            ),
-          ),
-          const Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
-        ],
-      ),
-    );
-  }
 
   String _getGreeting(String? name) {
     final hour = DateTime.now().hour;
     final prefix = hour < 12 ? 'GÜNAYDIN' : hour < 18 ? 'İYİ ÖĞLENLER' : 'İYİ AKŞAMLAR';
     return name != null && name.isNotEmpty ? '$prefix, ${name.toUpperCase()}' : prefix;
+  }
+
+  void _showLocationDeniedDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Konum Erişimi Gerekli'),
+        content: const Text(
+          'Yakınınızdaki restoranları bulabilmemiz için konum izni vermeniz gerekmektedir.'
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Tamam'),
+          ),
+        ],
+      ),
+    );
   }
 }

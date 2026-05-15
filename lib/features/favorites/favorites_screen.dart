@@ -4,6 +4,8 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'favorites_notifier.dart';
 import '../../core/theme/colors.dart';
 import '../../data/models/food_model.dart';
+import '../../features/nearby/nearby_state.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class FavoritesScreen extends ConsumerStatefulWidget {
   const FavoritesScreen({super.key});
@@ -33,47 +35,101 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
         title: const Text('Favorilerim'),
         centerTitle: false,
         actions: [
-          IconButton(
-            icon: Icon(isGridMode ? Icons.format_list_bulleted_rounded : Icons.grid_view_rounded),
-            onPressed: () => setState(() => isGridMode = !isGridMode),
-          ),
+          if (!state.showPlaces)
+            IconButton(
+              icon: Icon(isGridMode ? Icons.format_list_bulleted_rounded : Icons.grid_view_rounded),
+              onPressed: () => setState(() => isGridMode = !isGridMode),
+            ),
           const SizedBox(width: 8),
         ],
       ),
       body: Column(
         children: [
-          // 1. HORIZONTAL TABS (CHIPS)
-          SizedBox(
-            height: 50,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+          // FOOD VS PLACES TOGGLE
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            child: Row(
               children: [
-                _buildListTab(
-                  label: 'Tümü',
-                  isSelected: state.selectedListId == null,
-                  onTap: () => ref.read(favoritesNotifierProvider.notifier).selectList(null),
+                Expanded(
+                  child: _buildMainTab('Yemekler', !state.showPlaces, () {
+                    ref.read(favoritesNotifierProvider.notifier).togglePlacesTab(false);
+                  }),
                 ),
-                ...state.customLists.map((cl) => _buildListTab(
-                  label: cl.name,
-                  isSelected: state.selectedListId == cl.id,
-                  onTap: () => ref.read(favoritesNotifierProvider.notifier).selectList(cl.id),
-                )),
-                _buildAddButton(),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildMainTab('Mekanlar', state.showPlaces, () {
+                    ref.read(favoritesNotifierProvider.notifier).togglePlacesTab(true);
+                  }),
+                ),
               ],
             ),
           ),
-          const Divider(height: 32, thickness: 1, color: Colors.transparent),
+          const SizedBox(height: 8),
 
-          // 2. CONTENT AREA
-          Expanded(
-            child: displayFoods.isEmpty
-                ? _buildEmptyState(theme)
-                : isGridMode
-                    ? _buildGridView(displayFoods)
-                    : _buildListView(displayFoods),
-          ),
+          if (!state.showPlaces) ...[
+            // HORIZONTAL TABS (CUSTOM LISTS)
+            SizedBox(
+              height: 50,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                children: [
+                  _buildListTab(
+                    label: 'Tümü',
+                    isSelected: state.selectedListId == null,
+                    onTap: () => ref.read(favoritesNotifierProvider.notifier).selectList(null),
+                  ),
+                  ...state.customLists.map((cl) => _buildListTab(
+                    label: cl.name,
+                    isSelected: state.selectedListId == cl.id,
+                    onTap: () => ref.read(favoritesNotifierProvider.notifier).selectList(cl.id),
+                  )),
+                  _buildAddButton(),
+                ],
+              ),
+            ),
+            const Divider(height: 32, thickness: 1, color: Colors.transparent),
+
+            // FOOD CONTENT AREA
+            Expanded(
+              child: displayFoods.isEmpty
+                  ? _buildEmptyState(theme, false)
+                  : isGridMode
+                      ? _buildGridView(displayFoods)
+                      : _buildListView(displayFoods),
+            ),
+          ] else ...[
+            // PLACES CONTENT AREA
+            Expanded(
+              child: state.favoritePlaces.isEmpty
+                  ? _buildEmptyState(theme, true)
+                  : _buildPlacesListView(state.favoritePlaces),
+            ),
+          ]
         ],
+      ),
+    );
+  }
+
+  Widget _buildMainTab(String label, bool isSelected, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.primary.withOpacity(isSelected ? 1.0 : 0.2)),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: isSelected ? Colors.white : AppColors.primary,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     );
   }
@@ -191,18 +247,99 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
     ).animate().fade().slideX(begin: 0.1);
   }
 
-  Widget _buildEmptyState(ThemeData theme) {
+  Widget _buildEmptyState(ThemeData theme, bool isPlaces) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.favorite_outline_rounded, size: 80, color: AppColors.textSecondary.withOpacity(0.2)),
+          Icon(isPlaces ? Icons.storefront_outlined : Icons.favorite_outline_rounded, size: 80, color: AppColors.textSecondary.withOpacity(0.2)),
           const SizedBox(height: 20),
-          const Text('Henüz favorin yok', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Text(isPlaces ? 'Favori mekanın yok' : 'Henüz favorin yok', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          const Text('Beğendiğin yemekleri kalp ikonuna\nbasarak buraya ekleyebilirsin.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary)),
+          Text(isPlaces ? 'Haritadan beğendiğin restoranları\nburaya ekleyebilirsin.' : 'Beğendiğin yemekleri kalp ikonuna\nbasarak buraya ekleyebilirsin.', textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textSecondary)),
         ],
       ),
+    );
+  }
+
+  // --- PLACES ---
+
+  Widget _buildPlacesListView(List<NearbyPlace> places) {
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      itemCount: places.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        final place = places[index];
+        return Dismissible(
+          key: ValueKey(place.placeId),
+          direction: DismissDirection.endToStart,
+          background: Container(
+            alignment: Alignment.centerRight,
+            padding: const EdgeInsets.only(right: 20),
+            decoration: BoxDecoration(color: Colors.redAccent, borderRadius: BorderRadius.circular(16)),
+            child: const Icon(Icons.delete_outline_rounded, color: Colors.white),
+          ),
+          onDismissed: (_) {
+            ref.read(favoritesNotifierProvider.notifier).toggleFavoritePlace(place);
+          },
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardTheme.color,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.black.withOpacity(0.05)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        place.name,
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        const Icon(Icons.star, color: Colors.amber, size: 16),
+                        const SizedBox(width: 4),
+                        Text(place.rating.toString(), style: const TextStyle(fontWeight: FontWeight.bold)),
+                      ],
+                    )
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  place.address,
+                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      final uri = Uri.parse("https://www.google.com/maps/search/?api=1&query=${place.latLng.latitude},${place.latLng.longitude}&query_place_id=${place.placeId}");
+                      launchUrl(uri);
+                    },
+                    icon: const Icon(Icons.directions, size: 16),
+                    label: const Text('Haritada Aç'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary.withOpacity(0.1),
+                      foregroundColor: AppColors.primary,
+                      elevation: 0,
+                    ),
+                  ),
+                )
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
