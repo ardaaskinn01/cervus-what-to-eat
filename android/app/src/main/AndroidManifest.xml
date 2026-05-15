@@ -30,7 +30,7 @@
             android:value="2" />
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3940256099942544~3347511713"/>
+            android:value="ca-app-pub-2073707860224174~7868341173"/>
         <meta-data 
             android:name="com.google.android.maps.v2.API_KEY" 
             android:value="AIzaSyCDCQvS9HZvl36qtrwgtzOsUvxZYG15728"/>
