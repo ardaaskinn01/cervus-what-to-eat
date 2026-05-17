@@ -18,10 +18,35 @@ class SmartSuggestionEngine {
     // Dataset'i karıştır (Eşit skorlarda sıra adaleti için)
     final shuffledDataset = List<FoodModel>.from(foodDataset)..shuffle(random);
 
+    // Otomatik Öğün Belirleme (Eğer seçilmemişse sistem saatine göre)
+    String? effectiveMealType = filter.mealType;
+    if (effectiveMealType == null) {
+      final hour = DateTime.now().hour;
+      if (hour >= 6 && hour < 11) {
+        effectiveMealType = 'Kahvaltı';
+      } else if (hour >= 11 && hour < 16) {
+        effectiveMealType = 'Öğle';
+      } else if (hour >= 16 && hour < 22) {
+        effectiveMealType = 'Akşam';
+      } else {
+        effectiveMealType = 'Atıştırmalık';
+      }
+    }
+
     for (var food in shuffledDataset) {
       // 1. Hard Filter: Eşleşmeyenleri baştan ele
       bool match = true;
-      if (filter.mealType != null && !food.mealTypes.contains(filter.mealType)) match = false;
+      
+      // Öğün tipi kontrolü
+      if (!food.mealTypes.contains(effectiveMealType)) match = false;
+      
+      // Atıştırmalık saatinde ana yemek çıkmasını engelle (Veya tam tersi)
+      if (effectiveMealType == 'Atıştırmalık' || effectiveMealType == 'Tatlı') {
+        if (food.calorieRange == 'Yüksek' && !food.mealTypes.contains('Atıştırmalık')) {
+          match = false; // Ağır ana yemekleri atıştırmalıkta elemen lazım
+        }
+      }
+
       if (filter.place != null && !food.place.contains(filter.place)) match = false;
       if (filter.maxTime != null && food.timeMinutes > filter.maxTime!) match = false;
       if (filter.budget != null && food.budget.toLowerCase() != filter.budget!.toLowerCase()) match = false;
@@ -41,7 +66,15 @@ class SmartSuggestionEngine {
       if (!match) continue;
 
       // 2. Dinamik Puanlama
-      double score = 20.0; // Daha yüksek temel puan
+      double score = 20.0; // Temel puan
+
+      // "Sağlıklı" filtresi seçiliyse ve atıştırmalık saatindeysek, 
+      // meyve ve hafif fit ürünlere ekstra bonus ver.
+      if (filter.dietTag == 'Sağlıklı' && effectiveMealType == 'Atıştırmalık') {
+        if (food.dietTags.contains('Sağlıklı') && food.calorieRange == 'Düşük') {
+          score += 40; // Çok güçlü bir bonus
+        }
+      }
 
       // Filtre Uyumu (Tercih edilenler için ekstra puan)
       if (filter.moodTag != null && food.moodTags.contains(filter.moodTag)) score += 15;
@@ -52,7 +85,6 @@ class SmartSuggestionEngine {
         if (food.dietTags.contains(profile.dietType)) {
           score += 25;
         } else {
-          // Eğer diyet tipi uymuyorsa şansını çok azalt (Katı değil ama çok düşük ihtimal)
           score *= 0.1;
         }
       }
@@ -62,40 +94,30 @@ class SmartSuggestionEngine {
         score *= 1.5;
       }
 
-      // 3. Tekrar Önleme (DÜZELTME: İsim bazlı kontrol de eklendi)
-      
-      // Bugün yenildi mi? (Neredeyse imkansız yap)
+      // 3. Tekrar Önleme 
       if (todayEatenIds.contains(food.id)) {
         score *= 0.01;
       }
       
-      // Son önerilenler arasında mı? (Penaltıyı ağırlaştır)
       final lastSuggestedFood = excludeIds.isNotEmpty 
           ? shuffledDataset.firstWhere((f) => f.id == excludeIds.last, orElse: () => food) 
           : null;
 
       if (excludeIds.contains(food.id) || (lastSuggestedFood != null && lastSuggestedFood.name == food.name)) {
-        // En son önerilen mi? (İsim veya ID bazlı)
         if (excludeIds.isNotEmpty && (excludeIds.last == food.id || lastSuggestedFood?.name == food.name)) {
-          score *= 0.0; // Son yemeği (ve aynısını) ÇIKARMA
+          score *= 0.0; // Son yemeği ÇIKARMA
         } else {
-          // Listenin başında mı (daha eski mi)?
           int index = excludeIds.indexOf(food.id);
-          double penaltyFactor = 0.05 + (index * 0.1); // Penaltıyı çok daha sert yap
+          double penaltyFactor = 0.05 + (index * 0.1); 
           score *= penaltyFactor;
         }
       }
 
       // 4. Çeşitlilik ve Sürpriz Faktörü
-      
-      // PopularityScore etkisi
       score *= (1.0 + (food.popularityScore * 0.3));
-
-      // Kaos Faktörü: %0 ile %50 arası tamamen rastgele ek puan
-      // Bu, her zaman en yüksek puanın kazanmamasını sağlar.
       score += random.nextDouble() * 15;
 
-      if (score > 0) {
+      if (score > 4.0) { // Çok düşük skorları ele
         scores.add(_FoodItemScore(food, score));
       }
     }

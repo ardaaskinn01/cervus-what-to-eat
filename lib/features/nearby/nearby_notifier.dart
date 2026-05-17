@@ -27,13 +27,11 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
     _positionSubscription = LocationService.instance.positionStream.listen((pos) {
       final latLng = LatLng(pos.latitude, pos.longitude);
       setUserPosition(latLng);
-      // İlk yükleme yapıldıysa ve mesafe çok değiştiyse veya 30sn olduysa logic eklenebilir
-      // Şimdilik sadece konumu güncel tutuyoruz.
     });
   }
 
   void setFilter(String filter) {
-    state = state.copyWith(activeFilter: filter);
+    state = state.copyWith(activeFilter: filter, clearSelectedPlace: true);
     if (state.userPosition != null) {
       loadNearby(state.userPosition!, filter, state.searchQuery);
     }
@@ -51,30 +49,58 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
   }
 
   void selectPlace(NearbyPlace? place) {
-    state = state.copyWith(selectedPlace: place);
+    state = state.copyWith(selectedPlace: place, clearSelectedPlace: place == null);
   }
 
   void setUserPosition(LatLng position) {
     state = state.copyWith(userPosition: position);
   }
 
+  void updateNearbyFilter(NearbyFilter filter) {
+    state = state.copyWith(nearbyFilter: filter);
+    // Reload with new radius
+    if (state.userPosition != null) {
+      loadNearby(state.userPosition!, state.activeFilter, state.searchQuery);
+    }
+  }
+
+  /// Called when user pans the map — loads new results for that camera position
+  Future<void> loadNearbyAtPosition(LatLng pos) async {
+    await loadNearby(pos, state.activeFilter, state.searchQuery);
+  }
+
   Future<void> loadNearby(LatLng pos, String filter, String searchQuery) async {
     state = state.copyWith(isLoading: true, error: null);
 
     try {
-      String keyword = filter == 'Tümü' ? 'restaurant' : filter;
-      if (searchQuery.trim().isNotEmpty) {
-        keyword = '${searchQuery.trim()} $keyword';
+      final Map<String, dynamic> queryParams = {
+        'location': '${pos.latitude},${pos.longitude}',
+        'key': AppStrings.googleMapsApiKey,
+        'type': 'restaurant', // Base type to ensure it's a food place
+      };
+
+      if (filter == 'Tümü' && searchQuery.trim().isEmpty) {
+        // En geniş arama: Keyword'ü TAMAMEN siliyoruz.
+        // Sadece 'type=restaurant' vererek Google'ın o bölgedeki tüm yemek yerlerini/büfeleri
+        // hiçbir isim kısıtlaması olmadan listelemesini sağlıyoruz.
+        queryParams.remove('keyword'); 
+      } else {
+        // Spesifik kategori veya arama sorgusu
+        queryParams['keyword'] = searchQuery.trim().isNotEmpty 
+            ? '${searchQuery.trim()} $filter' 
+            : filter;
       }
+
+      // 500m altı için distance, üstü için radius.
+      if (state.nearbyFilter.radiusKm <= 0.5) {
+        queryParams['rankby'] = 'distance';
+      } else {
+        queryParams['radius'] = '${(state.nearbyFilter.radiusKm * 1000).toInt()}';
+      }
+
       final response = await _dio.get(
         'https://maps.googleapis.com/maps/api/place/nearbysearch/json',
-        queryParameters: {
-          'location': '${pos.latitude},${pos.longitude}',
-          'radius': '1500',
-          'type': 'restaurant',
-          'keyword': keyword,
-          'key': AppStrings.googleMapsApiKey,
-        },
+        queryParameters: queryParams,
       );
 
       if (response.data['status'] == 'OK') {
@@ -85,8 +111,8 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
         state = state.copyWith(places: [], isLoading: false);
       } else {
         state = state.copyWith(
-          isLoading: false, 
-          error: 'Places API Hatası: ${response.data['status']}'
+          isLoading: false,
+          error: 'Places API Hatası: ${response.data['status']}',
         );
       }
     } catch (e) {
