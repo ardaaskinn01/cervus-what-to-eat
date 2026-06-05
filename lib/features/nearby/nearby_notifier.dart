@@ -5,16 +5,25 @@ import 'package:dio/dio.dart';
 import 'nearby_state.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/services/location_service.dart';
+import '../../core/providers/filter_provider.dart';
 
 final nearbyNotifierProvider = StateNotifierProvider<NearbyNotifier, NearbyState>((ref) {
-  return NearbyNotifier();
+  final notifier = NearbyNotifier(ref);
+  
+  // Listen to global filter changes
+  ref.listen(filterProvider, (previous, next) {
+    notifier.loadNearbyWithGlobalFilters();
+  });
+  
+  return notifier;
 });
 
 class NearbyNotifier extends StateNotifier<NearbyState> {
+  final Ref _ref;
   final Dio _dio = Dio();
   StreamSubscription? _positionSubscription;
 
-  NearbyNotifier() : super(NearbyState());
+  NearbyNotifier(this._ref) : super(NearbyState());
 
   @override
   void dispose() {
@@ -32,16 +41,12 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
 
   void setFilter(String filter) {
     state = state.copyWith(activeFilter: filter, clearSelectedPlace: true);
-    if (state.userPosition != null) {
-      loadNearby(state.userPosition!, filter, state.searchQuery);
-    }
+    loadNearbyWithGlobalFilters();
   }
 
   void setSearchQuery(String query) {
     state = state.copyWith(searchQuery: query);
-    if (state.userPosition != null) {
-      loadNearby(state.userPosition!, state.activeFilter, query);
-    }
+    loadNearbyWithGlobalFilters();
   }
 
   void setPermission(bool granted) {
@@ -58,9 +63,13 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
 
   void updateNearbyFilter(NearbyFilter filter) {
     state = state.copyWith(nearbyFilter: filter);
-    // Reload with new radius
+    loadNearbyWithGlobalFilters();
+  }
+
+  /// Convenience method to reload using current state and global filters
+  Future<void> loadNearbyWithGlobalFilters() async {
     if (state.userPosition != null) {
-      loadNearby(state.userPosition!, state.activeFilter, state.searchQuery);
+      await loadNearby(state.userPosition!, state.activeFilter, state.searchQuery);
     }
   }
 
@@ -72,6 +81,8 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
   Future<void> loadNearby(LatLng pos, String filter, String searchQuery) async {
     state = state.copyWith(isLoading: true, error: null);
 
+    final globalFilter = _ref.read(filterProvider);
+
     try {
       final Map<String, dynamic> queryParams = {
         'location': '${pos.latitude},${pos.longitude}',
@@ -79,21 +90,48 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
         'type': 'restaurant', // Base type to ensure it's a food place
       };
 
-      if (filter == 'Tümü' && searchQuery.trim().isEmpty) {
-        // En geniş arama: Keyword'ü TAMAMEN siliyoruz.
-        // Sadece 'type=restaurant' vererek Google'ın o bölgedeki tüm yemek yerlerini/büfeleri
-        // hiçbir isim kısıtlaması olmadan listelemesini sağlıyoruz.
-        queryParams.remove('keyword'); 
-      } else {
-        // Spesifik kategori veya arama sorgusu
-        queryParams['keyword'] = searchQuery.trim().isNotEmpty 
-            ? '${searchQuery.trim()} $filter' 
-            : filter;
+      // Combine all keywords: UI Category + Search Query + Global Filters
+      List<String> keywords = [];
+      
+      if (filter != 'Tümü' && filter.isNotEmpty) keywords.add(filter);
+      if (searchQuery.trim().isNotEmpty) keywords.add(searchQuery.trim());
+      
+      // Add global filters to keywords for better relevance
+      if (globalFilter.mealType != null) keywords.add(globalFilter.mealType!);
+      if (globalFilter.cuisine != null) keywords.add(globalFilter.cuisine!);
+      if (globalFilter.dietTag != null) keywords.add(globalFilter.dietTag!);
+
+      if (keywords.isNotEmpty) {
+        queryParams['keyword'] = keywords.join(' ');
       }
 
-      // 500m altı için distance, üstü için radius.
+      // Add "Open Now" filter to API if selected
+      if (globalFilter.onlyOpenNow == true) {
+        queryParams['opennow'] = true;
+      }
+
+      // Budget Mapping (Google minprice/maxprice 0-4)
+      if (globalFilter.budget != null) {
+        switch (globalFilter.budget) {
+          case 'Ucuz':
+            queryParams['minprice'] = 0;
+            queryParams['maxprice'] = 1;
+            break;
+          case 'Orta':
+            queryParams['minprice'] = 1;
+            queryParams['maxprice'] = 2;
+            break;
+          case 'Pahalı':
+            queryParams['minprice'] = 3;
+            queryParams['maxprice'] = 4;
+            break;
+        }
+      }
+
+      // Radius and Ranking
       if (state.nearbyFilter.radiusKm <= 0.5) {
         queryParams['rankby'] = 'distance';
+        // When rankby=distance, radius must NOT be provided
       } else {
         queryParams['radius'] = '${(state.nearbyFilter.radiusKm * 1000).toInt()}';
       }

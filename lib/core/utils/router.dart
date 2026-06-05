@@ -45,6 +45,18 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/onboarding',
         builder: (context, state) => const OnboardingScreen(),
       ),
+      GoRoute(
+        path: '/suggestion',
+        builder: (context, state) => const SuggestionScreen(),
+      ),
+      GoRoute(
+        path: '/weekly_plan',
+        builder: (context, state) => const WeeklyPlanScreen(),
+      ),
+      GoRoute(
+        path: '/nearby',
+        builder: (context, state) => const NearbyScreen(),
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
           return MainWrapper(navigationShell: navigationShell);
@@ -56,18 +68,6 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/home',
                 builder: (context, state) => const HomeScreen(),
-              ),
-              GoRoute(
-                path: '/suggestion',
-                builder: (context, state) => const SuggestionScreen(),
-              ),
-              GoRoute(
-                path: '/weekly_plan',
-                builder: (context, state) => const WeeklyPlanScreen(),
-              ),
-              GoRoute(
-                path: '/nearby',
-                builder: (context, state) => const NearbyScreen(),
               ),
             ],
           ),

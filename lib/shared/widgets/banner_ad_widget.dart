@@ -13,19 +13,29 @@ class BannerAdWidget extends StatefulWidget {
 class _BannerAdWidgetState extends State<BannerAdWidget> {
   BannerAd? _bannerAd;
   bool _isLoaded = false;
+  String? _currentRoute;
 
   @override
-  void initState() {
-    super.initState();
-    if (!AdService.instance.isPremium) {
-      _loadAd();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context)?.settings.name;
+    if (_currentRoute != route) {
+      _currentRoute = route;
+      if (!AdService.instance.isPremium) {
+        _loadAd();
+      }
     }
   }
 
   void _loadAd() {
-    final adUnitId = Platform.isAndroid 
-        ? 'ca-app-pub-2073707860224174/8920349800' 
-        : 'ca-app-pub-2073707860224174/9860684934';
+    _bannerAd?.dispose();
+    _isLoaded = false;
+
+    // Don't show ads on nearby screen as requested
+    if (_currentRoute == '/nearby') return;
+
+    final adUnitId = AdService.getBannerAdUnitId(_currentRoute);
+    if (adUnitId == null) return;
     
     _bannerAd = BannerAd(
       adUnitId: adUnitId,
@@ -33,9 +43,7 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
       size: AdSize.banner,
       listener: BannerAdListener(
         onAdLoaded: (ad) {
-          setState(() {
-            _isLoaded = true;
-          });
+          if (mounted) setState(() => _isLoaded = true);
         },
         onAdFailedToLoad: (ad, err) {
           ad.dispose();
@@ -58,7 +66,7 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
 
     return Container(
       alignment: Alignment.center,
-      width: _bannerAd!.size.width.toDouble(),
+      width: double.infinity,
       height: _bannerAd!.size.height.toDouble(),
       child: AdWidget(ad: _bannerAd!),
     );

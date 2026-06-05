@@ -34,6 +34,9 @@
         <meta-data 
             android:name="com.google.android.maps.v2.API_KEY" 
             android:value="AIzaSyCDCQvS9HZvl36qtrwgtzOsUvxZYG15728"/>
+        <meta-data
+            android:name="io.flutter.embedding.android.EnableImpeller"
+            android:value="false"/>
     </application>
     <queries>
         <intent>

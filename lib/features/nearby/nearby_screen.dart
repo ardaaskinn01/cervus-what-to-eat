@@ -8,6 +8,9 @@ import 'nearby_state.dart';
 import 'widgets/nearby_place_bottom_sheet.dart';
 import '../../core/theme/colors.dart';
 import '../../core/services/location_service.dart';
+import '../../shared/widgets/glass_container.dart';
+import '../../shared/widgets/scale_button.dart';
+import '../../shared/widgets/filter_bottom_sheet.dart';
 import 'package:custom_map_markers/custom_map_markers.dart';
 
 class NearbyScreen extends ConsumerStatefulWidget {
@@ -57,17 +60,52 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
     }
   }
 
+  void _animateToFitResults() {
+    final state = ref.read(nearbyNotifierProvider);
+    final places = state.filteredPlaces;
+    if (places.isEmpty) return;
+
+    final bounds = _getBounds(places);
+    _mapController?.animateCamera(
+      CameraUpdate.newLatLngBounds(bounds, 80), // 80px padding
+    );
+  }
+
+  LatLngBounds _getBounds(List<NearbyPlace> places) {
+    double minLat = places.first.latLng.latitude;
+    double maxLat = places.first.latLng.latitude;
+    double minLng = places.first.latLng.longitude;
+    double maxLng = places.first.latLng.longitude;
+
+    for (var p in places) {
+      if (p.latLng.latitude < minLat) minLat = p.latLng.latitude;
+      if (p.latLng.latitude > maxLat) maxLat = p.latLng.latitude;
+      if (p.latLng.longitude < minLng) minLng = p.latLng.longitude;
+      if (p.latLng.longitude > maxLng) maxLng = p.latLng.longitude;
+    }
+
+    return LatLngBounds(
+      southwest: LatLng(minLat, minLng),
+      northeast: LatLng(maxLat, maxLng),
+    );
+  }
+
   Future<void> _getUserLocation() async {
     final position = await LocationService.instance.getCurrentPosition();
     if (position != null) {
       final latLng = LatLng(position.latitude, position.longitude);
       ref.read(nearbyNotifierProvider.notifier).setUserPosition(latLng);
+      
+      // Load nearby and then animate
       await ref.read(nearbyNotifierProvider.notifier).loadNearby(
         latLng,
         ref.read(nearbyNotifierProvider).activeFilter,
         ref.read(nearbyNotifierProvider).searchQuery,
       );
-      _mapController?.animateCamera(CameraUpdate.newLatLngZoom(latLng, 14));
+
+      _mapController?.animateCamera(
+        CameraUpdate.newLatLngZoom(latLng, 14.5),
+      );
     }
   }
 
@@ -178,32 +216,37 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
                 child: Column(
                   children: [
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       child: Row(
                         children: [
                           // Back button
-                          _MapButton(
-                            icon: Icons.arrow_back,
+                          ScaleButton(
                             onTap: () => Navigator.pop(context),
+                            child: GlassContainer(
+                              width: 48,
+                              height: 48,
+                              borderRadius: 24,
+                              blur: 10,
+                              child: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                            ),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 12),
 
-                          // Search bar (compact)
+                          // Glassmorphism Search Bar
                           Expanded(
-                            child: Container(
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(22),
-                                boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8)],
-                              ),
+                            child: GlassContainer(
+                              height: 48,
+                              borderRadius: 24,
+                              blur: 15,
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 0.5),
                               child: TextField(
-                                style: const TextStyle(fontSize: 14),
-                                decoration: const InputDecoration(
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                                decoration: InputDecoration(
                                   hintText: 'Mekan veya yemek ara...',
-                                  hintStyle: TextStyle(fontSize: 13),
-                                  prefixIcon: Icon(Icons.search, size: 20),
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                                  hintStyle: TextStyle(fontSize: 14, color: AppColors.textSecondary.withValues(alpha: 0.7)),
+                                  prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
                                   border: InputBorder.none,
                                 ),
                                 onSubmitted: (value) {
@@ -212,51 +255,38 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
                               ),
                             ),
                           ),
-                          const SizedBox(width: 8),
-
-                          // Filter button with badge
-                          Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              _MapButton(
-                                icon: Icons.tune_rounded,
-                                onTap: _showFilterSheet,
-                                color: filterCount > 0 ? AppColors.primary : Colors.white,
-                                iconColor: filterCount > 0 ? Colors.white : Colors.black,
-                              ),
-                              if (filterCount > 0)
-                                Positioned(
-                                  top: -4,
-                                  right: -4,
-                                  child: Container(
-                                    width: 18,
-                                    height: 18,
-                                    decoration: const BoxDecoration(
-                                      color: Colors.red,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        '$filterCount',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(width: 8),
-
                           // Smart select button
-                          _MapButton(
-                            icon: Icons.auto_awesome_rounded,
+                          ScaleButton(
                             onTap: _smartSelect,
-                            color: AppColors.primary,
-                            iconColor: Colors.white,
+                            child: GlassContainer(
+                              width: 48,
+                              height: 48,
+                              borderRadius: 24,
+                              blur: 10,
+                              color: AppColors.primary.withValues(alpha: 0.8),
+                              child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 22),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+
+                          // NEW: FIXED FILTER BUTTON
+                          ScaleButton(
+                            onTap: () {
+                              showModalBottomSheet(
+                                context: context,
+                                isScrollControlled: true,
+                                useRootNavigator: true,
+                                backgroundColor: Colors.transparent,
+                                builder: (context) => const FilterBottomSheet(isMapMode: true),
+                              );
+                            },
+                            child: GlassContainer(
+                              width: 48,
+                              height: 48,
+                              borderRadius: 24,
+                              blur: 10,
+                              child: const Icon(Icons.tune_rounded, color: AppColors.primary, size: 22),
+                            ),
                           ),
                         ],
                       ),
@@ -283,20 +313,43 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
                   ),
                 ),
 
-              // ── Zoom Controls ──────────────────────────────────────────
+              // ── Zoom & Location Controls ──────────────────────────────
               Positioned(
                 right: 16,
-                bottom: MediaQuery.of(context).size.height * 0.25,
+                bottom: MediaQuery.of(context).size.height * 0.28,
                 child: Column(
                   children: [
-                    _MapButton(
-                      icon: Icons.add,
+                    ScaleButton(
+                      onTap: _getUserLocation,
+                      child: GlassContainer(
+                        width: 48,
+                        height: 48,
+                        borderRadius: 24,
+                        blur: 10,
+                        child: Icon(Icons.my_location_rounded, color: AppColors.primary, size: 22),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ScaleButton(
                       onTap: () => _mapController?.animateCamera(CameraUpdate.zoomIn()),
+                      child: GlassContainer(
+                        width: 44,
+                        height: 44,
+                        borderRadius: 22,
+                        blur: 10,
+                        child: const Icon(Icons.add_rounded, size: 20),
+                      ),
                     ),
                     const SizedBox(height: 8),
-                    _MapButton(
-                      icon: Icons.remove,
+                    ScaleButton(
                       onTap: () => _mapController?.animateCamera(CameraUpdate.zoomOut()),
+                      child: GlassContainer(
+                        width: 44,
+                        height: 44,
+                        borderRadius: 22,
+                        blur: 10,
+                        child: const Icon(Icons.remove_rounded, size: 20),
+                      ),
                     ),
                   ],
                 ),
@@ -334,53 +387,54 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
   }
 
   Widget _buildCategoryFilters(NearbyState state) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return SizedBox(
-      height: 36,
+      height: 44,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        physics: const BouncingScrollPhysics(),
         itemCount: _categories.length,
         itemBuilder: (context, index) {
           final category = _categories[index];
           final isSelected = state.activeFilter == category;
 
           return Padding(
-            padding: const EdgeInsets.only(right: 6),
-            child: GestureDetector(
-              onTap: () {
-                ref.read(nearbyNotifierProvider.notifier).setFilter(category);
+            padding: const EdgeInsets.only(right: 8),
+            child: ChoiceChip(
+              showCheckmark: false,
+              label: Text(category),
+              selected: isSelected,
+              onSelected: (selected) {
+                if (category == 'Tümü') {
+                  ref.read(nearbyNotifierProvider.notifier).setFilter('Tümü');
+                } else if (isSelected) {
+                  // Tapping the already-selected chip → deselect, go back to Tümü
+                  ref.read(nearbyNotifierProvider.notifier).setFilter('Tümü');
+                } else {
+                  ref.read(nearbyNotifierProvider.notifier).setFilter(category);
+                }
               },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  gradient: isSelected ? AppColors.primaryGradient : null,
-                  color: isSelected ? null : Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                  boxShadow: [
-                    BoxShadow(
-                      color: isSelected
-                          ? AppColors.primary.withValues(alpha: 0.35)
-                          : Colors.black.withValues(alpha: 0.08),
-                      blurRadius: 6,
-                    )
-                  ],
-                ),
-                child: Text(
-                  category,
-                  style: TextStyle(
-                    color: isSelected ? Colors.white : Colors.black87,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                  ),
-                ),
+              selectedColor: AppColors.primary,
+              backgroundColor: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.white,
+              elevation: isSelected ? 6 : 1,
+              pressElevation: 2,
+              shadowColor: isSelected ? AppColors.primary.withValues(alpha: 0.4) : Colors.black.withValues(alpha: 0.1),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              labelStyle: TextStyle(
+                color: isSelected ? Colors.white : AppColors.textSecondary,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                fontSize: 13,
               ),
+              side: BorderSide(
+                color: isSelected ? Colors.transparent : Colors.black.withValues(alpha: 0.06),
+              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             ),
-          ).animate(target: state.isLoading ? 1 : 0).shimmer();
+          );
         },
       ),
-    );
+    ).animate().fade(duration: 400.ms).slideX(begin: 0.1);
   }
 
   Widget _buildPlaceList(NearbyState state, ScrollController controller) {
@@ -435,8 +489,9 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
 
   List<MarkerData> _buildCustomMarkers(NearbyState state) {
     return state.filteredPlaces.map((place) {
-      final rating = place.rating > 0 ? place.rating.toStringAsFixed(1) : '?';
-      final bool showLabel = _currentZoom >= 15.5;
+      final bool isSelected = state.selectedPlace?.placeId == place.placeId;
+      final bool showLabel = _currentZoom >= 15.0;
+      final Color markerColor = isSelected ? AppColors.primary : (place.isOpen ? Colors.orange : Colors.grey);
 
       return MarkerData(
         marker: Marker(
@@ -447,39 +502,80 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
             _mapController?.animateCamera(CameraUpdate.newLatLng(place.latLng));
           },
         ),
-        child: showLabel
-            ? Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: place.isOpen ? AppColors.primary : Colors.grey[700],
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white, width: 1.5),
-                  boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.star, color: Colors.white, size: 13),
-                    const SizedBox(width: 3),
-                    Text(
-                      rating,
-                      style: const TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+        child: AnimatedScale(
+          scale: isSelected ? 1.2 : 1.0,
+          duration: const Duration(milliseconds: 300),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (showLabel || isSelected)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
+                    border: Border.all(color: markerColor.withValues(alpha: 0.5), width: 1.5),
+                  ),
+                  child: Text(
+                    place.name,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: markerColor,
                     ),
-                  ],
+                    maxLines: 1,
+                  ),
                 ),
-              )
-            : Container(
-                padding: const EdgeInsets.all(5),
-                decoration: BoxDecoration(
-                  color: place.isOpen ? Colors.orange : Colors.grey,
-                  shape: BoxShape.circle,
-                  boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
+              const SizedBox(height: 4),
+              ScaleButton(
+                onTap: () {
+                  ref.read(nearbyNotifierProvider.notifier).selectPlace(place);
+                  _mapController?.animateCamera(CameraUpdate.newLatLng(place.latLng));
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: markerColor,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: markerColor.withValues(alpha: 0.4),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      )
+                    ],
+                  ),
+                  child: Icon(
+                    _getCategoryIcon(place.name, state.activeFilter),
+                    color: Colors.white,
+                    size: 18,
+                  ),
                 ),
-                child: const Icon(Icons.restaurant, color: Colors.white, size: 18),
               ),
+            ],
+          ),
+        ),
       );
     }).toList();
+  }
+
+  IconData _getCategoryIcon(String name, String filter) {
+    final lowerName = name.toLowerCase();
+    final lowerFilter = filter.toLowerCase();
+
+    if (lowerName.contains('kahve') || lowerFilter.contains('kahve')) return Icons.coffee_rounded;
+    if (lowerName.contains('pizza') || lowerFilter.contains('pizza')) return Icons.local_pizza_rounded;
+    if (lowerName.contains('burger') || lowerFilter.contains('burger')) return Icons.lunch_dining_rounded;
+    if (lowerName.contains('kebap') || lowerFilter.contains('kebap')) return Icons.kebab_dining_rounded;
+    if (lowerName.contains('balık') || lowerFilter.contains('balık')) return Icons.set_meal_rounded;
+    if (lowerName.contains('tatlı') || lowerFilter.contains('tatlı')) return Icons.cake_rounded;
+    if (lowerName.contains('pasta')) return Icons.bakery_dining_rounded;
+    if (lowerName.contains('deniz')) return Icons.waves_rounded;
+    if (lowerName.contains('et')) return Icons.restaurant_menu_rounded;
+    
+    return Icons.restaurant_rounded; // Default
   }
 
   Widget _buildPermissionDeniedView() {

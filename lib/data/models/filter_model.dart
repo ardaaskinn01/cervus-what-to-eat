@@ -7,6 +7,10 @@ class FilterModel {
   final String? cuisine;
   final String? moodTag;
   final String? weatherTag;
+  
+  // Map specific filters
+  final double? minRating;
+  final bool? onlyOpenNow;
 
   FilterModel({
     this.mealType,
@@ -17,6 +21,8 @@ class FilterModel {
     this.cuisine,
     this.moodTag,
     this.weatherTag,
+    this.minRating,
+    this.onlyOpenNow,
   });
 
   FilterModel copyWith({
@@ -28,6 +34,8 @@ class FilterModel {
     String? cuisine,
     String? moodTag,
     String? weatherTag,
+    double? minRating,
+    bool? onlyOpenNow,
   }) {
     return FilterModel(
       mealType: mealType ?? this.mealType,
@@ -38,18 +46,21 @@ class FilterModel {
       cuisine: cuisine ?? this.cuisine,
       moodTag: moodTag ?? this.moodTag,
       weatherTag: weatherTag ?? this.weatherTag,
+      minRating: minRating ?? this.minRating,
+      onlyOpenNow: onlyOpenNow ?? this.onlyOpenNow,
     );
   }
 
-  FilterModel setMealType(String? value) => FilterModel(mealType: value, place: place, maxTime: maxTime, budget: budget, dietTag: dietTag, cuisine: cuisine, moodTag: moodTag, weatherTag: weatherTag);
-  FilterModel setPlace(String? value) => FilterModel(mealType: mealType, place: value, maxTime: maxTime, budget: budget, dietTag: dietTag, cuisine: cuisine, moodTag: moodTag, weatherTag: weatherTag);
-  FilterModel setMaxTime(int? value) => FilterModel(mealType: mealType, place: place, maxTime: value, budget: budget, dietTag: dietTag, cuisine: cuisine, moodTag: moodTag, weatherTag: weatherTag);
-  FilterModel setBudget(String? value) => FilterModel(mealType: mealType, place: place, maxTime: maxTime, budget: value, dietTag: dietTag, cuisine: cuisine, moodTag: moodTag, weatherTag: weatherTag);
-  FilterModel setDietTag(String? value) => FilterModel(mealType: mealType, place: place, maxTime: maxTime, budget: budget, dietTag: value, cuisine: cuisine, moodTag: moodTag, weatherTag: weatherTag);
-  FilterModel setCuisine(String? value) => FilterModel(mealType: mealType, place: place, maxTime: maxTime, budget: budget, dietTag: dietTag, cuisine: value, moodTag: moodTag, weatherTag: weatherTag);
-  FilterModel setMoodTag(String? value) => FilterModel(mealType: mealType, place: place, maxTime: maxTime, budget: budget, dietTag: dietTag, cuisine: cuisine, moodTag: value, weatherTag: weatherTag);
-  FilterModel setWeatherTag(String? value) => FilterModel(mealType: mealType, place: place, maxTime: maxTime, budget: budget, dietTag: dietTag, cuisine: cuisine, moodTag: moodTag, weatherTag: value);
-
+  FilterModel setMealType(String? value) => copyWith(mealType: value);
+  FilterModel setPlace(String? value) => copyWith(place: value);
+  FilterModel setMaxTime(int? value) => copyWith(maxTime: value);
+  FilterModel setBudget(String? value) => copyWith(budget: value);
+  FilterModel setDietTag(String? value) => copyWith(dietTag: value);
+  FilterModel setCuisine(String? value) => copyWith(cuisine: value);
+  FilterModel setMoodTag(String? value) => copyWith(moodTag: value);
+  FilterModel setWeatherTag(String? value) => copyWith(weatherTag: value);
+  FilterModel setMinRating(double? value) => copyWith(minRating: value);
+  FilterModel setOnlyOpenNow(bool? value) => copyWith(onlyOpenNow: value);
 
   bool get isEmpty =>
       mealType == null &&
@@ -59,5 +70,22 @@ class FilterModel {
       dietTag == null &&
       cuisine == null &&
       moodTag == null &&
-      weatherTag == null;
+      weatherTag == null &&
+      minRating == null &&
+      onlyOpenNow == null;
+
+  int get activeFilterCount {
+    int count = 0;
+    if (mealType != null) count++;
+    if (place != null) count++;
+    if (maxTime != null) count++;
+    if (budget != null) count++;
+    if (dietTag != null) count++;
+    if (cuisine != null) count++;
+    if (moodTag != null) count++;
+    if (weatherTag != null) count++;
+    if (minRating != null) count++;
+    if (onlyOpenNow == true) count++;
+    return count;
+  }
 }

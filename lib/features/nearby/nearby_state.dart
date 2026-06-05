@@ -8,6 +8,7 @@ class NearbyPlace {
   final double rating;
   final bool isOpen;
   final LatLng latLng;
+  final int? priceLevel;
 
   NearbyPlace({
     required this.placeId,
@@ -17,6 +18,7 @@ class NearbyPlace {
     required this.rating,
     required this.isOpen,
     required this.latLng,
+    this.priceLevel,
   });
 
   factory NearbyPlace.fromJson(Map<String, dynamic> json) {
@@ -26,20 +28,22 @@ class NearbyPlace {
         placeId: json['place_id'],
         name: json['name'],
         address: json['vicinity'] ?? '',
-        photoRef: (json['photos'] as List?)?.first['photo_reference'],
+        photoRef: (json['photos'] as List?)?.first?['photo_reference'],
         rating: (json['rating'] ?? 0.0).toDouble(),
         isOpen: json['opening_hours']?['open_now'] ?? false,
         latLng: LatLng(location['lat'], location['lng']),
+        priceLevel: json['price_level'],
       );
     } else {
       return NearbyPlace(
-        placeId: json['placeId'],
-        name: json['name'],
-        address: json['address'],
+        placeId: json['placeId'] ?? json['place_id'] ?? '',
+        name: json['name'] ?? '',
+        address: json['address'] ?? json['vicinity'] ?? '',
         photoRef: json['photoRef'],
         rating: (json['rating'] ?? 0.0).toDouble(),
         isOpen: json['isOpen'] ?? true,
-        latLng: LatLng(json['lat'], json['lng']),
+        latLng: LatLng(json['lat'] ?? 0.0, json['lng'] ?? 0.0),
+        priceLevel: json['priceLevel'] ?? json['price_level'],
       );
     }
   }
@@ -54,6 +58,7 @@ class NearbyPlace {
       'isOpen': isOpen,
       'lat': latLng.latitude,
       'lng': latLng.longitude,
+      'priceLevel': priceLevel,
     };
   }
 }

@@ -19,13 +19,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   int _currentPage = 0;
   bool _isNameValid = false;
 
-  final List<Color> _bgColors = [
-    AppColors.primary.withOpacity(0.05),
-    AppColors.secondary.withOpacity(0.05),
-    Colors.purple.withOpacity(0.05),
-    AppColors.primary.withOpacity(0.1),
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -49,233 +42,420 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   void _finish() async {
     final name = _nameController.text.trim();
-    // Default to 'Misafir' if empty (though UI should prevent it now)
     ref.read(settingsNotifierProvider.notifier).updateName(name.isEmpty ? 'Misafir' : name);
-    
     ref.read(sharedPreferencesProvider).setBool('onboarding_done', true);
     context.go('/home');
   }
 
+  // Onboarding page data
+  final List<_OnboardingPage> _pages = const [
+    _OnboardingPage(
+      icon: Icons.restaurant_menu_rounded,
+      gradient: [Color(0xFFFF6B6B), Color(0xFFFF8E53)],
+      title: 'Yemek kararını\nbize bırak',
+      desc: 'Kararsızlığa son. Akıllı algoritmamız bugün ne yiyeceğini senin için belirliyor.',
+    ),
+    _OnboardingPage(
+      icon: Icons.psychology_rounded,
+      gradient: [Color(0xFF6C63FF), Color(0xFF3ECBFF)],
+      title: 'Ruh haline\ngöre öneri',
+      desc: 'Enerjik, rahat ya da nostaljik. Moodunu seç, biz en uygun lezzeti seçelim.',
+    ),
+    _OnboardingPage(
+      icon: Icons.collections_bookmark_rounded,
+      gradient: [Color(0xFF43E97B), Color(0xFF38F9D7)],
+      title: 'Favori\nlistelerin',
+      desc: '"Spor sonrası", "Hafta sonu kaçamağı" gibi kişisel koleksiyonlar oluştur.',
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final size = MediaQuery.of(context).size;
 
     return Scaffold(
-      body: AnimatedContainer(
-        duration: const Duration(milliseconds: 500),
-        decoration: BoxDecoration(
-          color: theme.scaffoldBackgroundColor,
-          gradient: LinearGradient(
-            colors: [
-              _bgColors[_currentPage],
-              theme.scaffoldBackgroundColor,
-            ],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: Stack(
-          children: [
-            PageView(
-              controller: _controller,
-              onPageChanged: (i) => setState(() => _currentPage = i),
-              children: [
-                _buildPage(
-                  icon: Icons.restaurant_menu_rounded,
-                  title: 'Yemek kararını bize bırak',
-                  desc: 'Kararsızlığa son! Akıllı algoritmamız senin için en uygun yemekleri bulur.',
+      backgroundColor: theme.scaffoldBackgroundColor,
+      body: Stack(
+        children: [
+          // Decorative background
+          Positioned(
+            top: -size.height * 0.15,
+            right: -size.width * 0.25,
+            child: Container(
+              width: size.width * 0.7,
+              height: size.width * 0.7,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppColors.primary.withOpacity(isDark ? 0.18 : 0.1),
+                    AppColors.primary.withOpacity(0),
+                  ],
                 ),
-                _buildPage(
-                  icon: Icons.auto_awesome_rounded,
-                  title: 'Ruh haline göre öneri',
-                  desc: 'Bugün enerjik mi yoksa rahatlamak mı istiyorsun? Moodunu seç, yemeği biz seçelim.',
-                ),
-                _buildPage(
-                  icon: Icons.favorite_rounded,
-                  title: 'Favori listelerini oluştur',
-                  desc: '"Spordan sonra", "Hafta sonu kaçamağı" gibi kendi özel listelerini hazırla.',
-                ),
-                _buildNamePage(),
-              ],
+              ),
             ),
-            
-            // Fixed Bottom Navigation
-            Positioned(
-              bottom: 60,
-              left: 30,
-              right: 30,
+          ),
+          Positioned(
+            bottom: size.height * 0.2,
+            left: -size.width * 0.2,
+            child: Container(
+              width: size.width * 0.5,
+              height: size.width * 0.5,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppColors.secondary.withOpacity(isDark ? 0.15 : 0.08),
+                    AppColors.secondary.withOpacity(0),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // Pages
+          PageView.builder(
+            controller: _controller,
+            onPageChanged: (i) => setState(() => _currentPage = i),
+            itemCount: _pages.length + 1, // +1 for name page
+            itemBuilder: (context, index) {
+              if (index < _pages.length) {
+                return _buildPage(_pages[index], isDark);
+              } else {
+                return _buildNamePage(isDark);
+              }
+            },
+          ),
+
+          // Fixed Bottom Controls
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              padding: EdgeInsets.fromLTRB(
+                28, 24, 28,
+                MediaQuery.of(context).padding.bottom + 32,
+              ),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    theme.scaffoldBackgroundColor.withOpacity(0),
+                    theme.scaffoldBackgroundColor.withOpacity(0.95),
+                    theme.scaffoldBackgroundColor,
+                  ],
+                ),
+              ),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Indicators
+                  // Page indicators
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(4, (index) {
+                    children: List.generate(_pages.length + 1, (index) {
                       final isSelected = _currentPage == index;
                       return AnimatedContainer(
                         duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
                         margin: const EdgeInsets.only(right: 8),
-                        height: 8,
-                        width: isSelected ? 24 : 8,
+                        height: 4,
+                        width: isSelected ? 28 : 8,
                         decoration: BoxDecoration(
-                          color: isSelected ? AppColors.primary : AppColors.textSecondary.withOpacity(0.3),
-                          borderRadius: BorderRadius.circular(4),
+                          color: isSelected
+                              ? AppColors.primary
+                              : AppColors.textSecondary.withOpacity(0.25),
+                          borderRadius: BorderRadius.circular(2),
                         ),
                       );
                     }),
                   ),
-                  const SizedBox(height: 32),
-                  
-                  // Buttons
-                  Row(
-                    children: [
-                      if (_currentPage < 3)
-                        Expanded(
-                          child: OutlinedButton(
-                            style: OutlinedButton.styleFrom(
-                              minimumSize: const Size(0, 56),
-                              side: BorderSide(color: AppColors.primary.withOpacity(0.5)),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-                            ),
-                            onPressed: () {
-                              _controller.nextPage(
-                                duration: const Duration(milliseconds: 400),
-                                curve: Curves.easeInOut,
-                              );
-                            },
-                            child: const Text('İleri', style: TextStyle(fontWeight: FontWeight.bold)),
-                          ),
-                        )
-                      else
-                        Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              gradient: _isNameValid 
-                                ? AppColors.primaryGradient 
-                                : LinearGradient(colors: [Colors.grey.shade400, Colors.grey.shade500]),
-                              borderRadius: BorderRadius.circular(28),
-                              boxShadow: _isNameValid ? [
-                                BoxShadow(
-                                  color: AppColors.primary.withOpacity(0.3),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 6),
-                                )
-                              ] : [],
-                            ),
-                            child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.transparent,
-                                shadowColor: Colors.transparent,
-                              ),
-                              onPressed: _isNameValid ? _finish : null,
-                              child: const Text('Başla', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.1),
+                  const SizedBox(height: 28),
+
+                  // Action button
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    child: _currentPage < _pages.length
+                        ? _buildNextButton()
+                        : _buildStartButton(),
+                  ),
                 ],
               ),
+            ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.05),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPage(_OnboardingPage data, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 36),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Icon container with gradient
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: data.gradient,
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: data.gradient.first.withOpacity(0.35),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
             ),
+            child: Icon(data.icon, size: 40, color: Colors.white),
+          )
+              .animate()
+              .scale(duration: 500.ms, curve: Curves.easeOutBack)
+              .fadeIn(),
+          const SizedBox(height: 40),
+          // Step label
+          Text(
+            'ADIM ${_pages.indexOf(data) + 1} / ${_pages.length}',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: AppColors.primary.withOpacity(0.7),
+              letterSpacing: 2,
+            ),
+          ).animate().fadeIn(delay: 150.ms),
+          const SizedBox(height: 12),
+          Text(
+            data.title,
+            style: const TextStyle(
+              fontSize: 34,
+              fontWeight: FontWeight.w900,
+              height: 1.15,
+              letterSpacing: -0.5,
+            ),
+          ).animate().slideY(begin: 0.15).fadeIn(delay: 200.ms),
+          const SizedBox(height: 20),
+          Text(
+            data.desc,
+            style: TextStyle(
+              fontSize: 16,
+              color: AppColors.textSecondary.withOpacity(0.85),
+              height: 1.65,
+              fontWeight: FontWeight.w400,
+            ),
+          ).animate().slideY(begin: 0.15).fadeIn(delay: 350.ms),
+          const SizedBox(height: 180), // space for bottom bar
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNamePage(bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 36),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Icon
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFFF6B6B), Color(0xFF6C63FF)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withOpacity(0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: const Icon(Icons.person_rounded, size: 40, color: Colors.white),
+          ).animate().scale(duration: 500.ms, curve: Curves.easeOutBack).fadeIn(),
+          const SizedBox(height: 40),
+          Text(
+            'NEREDEYSE TAMAM',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: AppColors.primary.withOpacity(0.7),
+              letterSpacing: 2,
+            ),
+          ).animate().fadeIn(delay: 150.ms),
+          const SizedBox(height: 12),
+          const Text(
+            'Seni nasıl\nçağıralım?',
+            style: TextStyle(
+              fontSize: 34,
+              fontWeight: FontWeight.w900,
+              height: 1.15,
+              letterSpacing: -0.5,
+            ),
+          ).animate().slideY(begin: 0.15).fadeIn(delay: 200.ms),
+          const SizedBox(height: 20),
+          Text(
+            'Kişiselleştirilmiş deneyim için adını paylaş.',
+            style: TextStyle(
+              fontSize: 16,
+              color: AppColors.textSecondary.withOpacity(0.85),
+              height: 1.65,
+            ),
+          ).animate().slideY(begin: 0.15).fadeIn(delay: 300.ms),
+          const SizedBox(height: 36),
+          // Name input
+          Container(
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.cardDark : Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(isDark ? 0.2 : 0.06),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+              border: Border.all(
+                color: _isNameValid
+                    ? AppColors.primary.withOpacity(0.4)
+                    : Colors.transparent,
+                width: 1.5,
+              ),
+            ),
+            child: TextField(
+              controller: _nameController,
+              autofocus: false,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              decoration: InputDecoration(
+                hintText: 'Adınız',
+                hintStyle: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w400,
+                  color: AppColors.textSecondary.withOpacity(0.5),
+                ),
+                prefixIcon: Icon(
+                  Icons.person_outline_rounded,
+                  color: _isNameValid
+                      ? AppColors.primary
+                      : AppColors.textSecondary.withOpacity(0.5),
+                ),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+              ),
+            ),
+          ).animate().slideY(begin: 0.15).fadeIn(delay: 400.ms),
+          const SizedBox(height: 180),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNextButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: OutlinedButton(
+        style: OutlinedButton.styleFrom(
+          side: BorderSide(color: AppColors.primary.withOpacity(0.4), width: 1.5),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        ),
+        onPressed: () {
+          _controller.nextPage(
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeInOut,
+          );
+        },
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: const [
+            Text(
+              'Devam Et',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+            ),
+            SizedBox(width: 8),
+            Icon(Icons.arrow_forward_rounded, size: 18),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildPage({required IconData icon, required String title, required String desc}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 40),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            height: 120,
-            width: 120,
-            decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.12),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, size: 56, color: AppColors.primary),
-          ).animate().scale(duration: 600.ms, curve: Curves.bounceOut).fadeIn(),
-          const SizedBox(height: 60),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, height: 1.2),
-          ).animate().slideY(begin: 0.2).fadeIn(delay: 200.ms),
-          const SizedBox(height: 20),
-          Text(
-            desc,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 16,
-              color: AppColors.textSecondary,
-              height: 1.6,
-            ),
-          ).animate().slideY(begin: 0.2).fadeIn(delay: 400.ms),
-          const SizedBox(height: 100), // Space for indicators
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNamePage() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 30),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            height: 120,
-            width: 120,
-            decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.12),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.person_pin_rounded, size: 56, color: AppColors.primary),
-          ).animate().scale(duration: 600.ms, curve: Curves.bounceOut).fadeIn(),
-          const SizedBox(height: 48),
-          const Text(
-            'Tanışalım!',
-            style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 12),
-          const Text(
-            'Seni nasıl çağıralım?',
-            style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: 32),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-            decoration: BoxDecoration(
-              color: isDark ? AppColors.cardDark : Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
+  Widget _buildStartButton() {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      width: double.infinity,
+      height: 56,
+      decoration: BoxDecoration(
+        gradient: _isNameValid
+            ? AppColors.primaryGradient
+            : LinearGradient(
+                colors: [Colors.grey.shade400, Colors.grey.shade500],
+              ),
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: _isNameValid
+            ? [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
+                  color: AppColors.primary.withOpacity(0.35),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
                 )
+              ]
+            : [],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(28),
+          onTap: _isNameValid ? _finish : null,
+          child: Center(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                Text(
+                  'Keşfetmeye Başla',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                  ),
+                ),
+                SizedBox(width: 8),
+                Icon(Icons.rocket_launch_rounded, color: Colors.white, size: 18),
               ],
             ),
-            child: TextField(
-              controller: _nameController,
-              autofocus: false,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-              decoration: const InputDecoration(
-                hintText: 'İsminiz',
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-              ),
-            ),
-          ).animate().slideY(begin: 0.2).fadeIn(delay: 200.ms),
-          const SizedBox(height: 120), // Space for indicators
-        ],
+          ),
+        ),
       ),
     );
   }
+}
+
+class _OnboardingPage {
+  final IconData icon;
+  final List<Color> gradient;
+  final String title;
+  final String desc;
+
+  const _OnboardingPage({
+    required this.icon,
+    required this.gradient,
+    required this.title,
+    required this.desc,
+  });
 }

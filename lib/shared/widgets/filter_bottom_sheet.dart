@@ -5,7 +5,8 @@ import '../../core/theme/colors.dart';
 import '../../data/models/filter_model.dart';
 
 class FilterBottomSheet extends ConsumerStatefulWidget {
-  const FilterBottomSheet({super.key});
+  final bool isMapMode;
+  const FilterBottomSheet({super.key, this.isMapMode = false});
 
   @override
   ConsumerState<FilterBottomSheet> createState() => _FilterBottomSheetState();
@@ -17,7 +18,6 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
   @override
   void initState() {
     super.initState();
-    // Copy the current global filter to temporary state for UI editing
     tempFilter = ref.read(filterProvider);
   }
 
@@ -44,7 +44,6 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
           ),
           child: Column(
             children: [
-              // Handle bar
               Container(
                 margin: const EdgeInsets.symmetric(vertical: 12),
                 width: 40,
@@ -54,14 +53,13 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              
-              // Header
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Gelişmiş Filtreler', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    Text(widget.isMapMode ? 'Harita Filtreleri' : 'Gelişmiş Filtreler', 
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                     IconButton(
                       icon: const Icon(Icons.close),
                       onPressed: () => Navigator.pop(context),
@@ -70,36 +68,60 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
                 ),
               ),
               const Divider(),
-
-              // Filter Lists
               Expanded(
                 child: ListView(
                   controller: scrollController,
                   padding: const EdgeInsets.all(20),
                   children: [
-                    _buildSection('Öğün', ['Kahvaltı', 'Öğle', 'Akşam', 'Atıştırmalık', 'Tatlı'], 
-                      tempFilter.mealType, (val) => setState(() => tempFilter = tempFilter.setMealType(val))),
+                    if (!widget.isMapMode) ...[
+                      _buildSection('Öğün', ['Kahvaltı', 'Öğle', 'Akşam', 'Atıştırmalık', 'Tatlı'], 
+                        tempFilter.mealType, (val) => setState(() => tempFilter = tempFilter.setMealType(val))),
+                      
+                      _buildSection('Yer', ['Evde', 'Dışarıda', 'Ofiste', 'Öğrenci Evi'], 
+                        tempFilter.place, (val) => setState(() => tempFilter = tempFilter.setPlace(val))),
+                      
+                      _buildTimeSection(),
+                      
+                      _buildSection('Bütçe', ['Ucuz', 'Orta', 'Pahalı'], 
+                        tempFilter.budget, (val) => setState(() => tempFilter = tempFilter.setBudget(val))),
+                      
+                      _buildSection('Beslenme Tipi', ['Sağlıklı', 'Proteinli', 'Hafif', 'Doyurucu', 'Kaçamak', 'Vejetaryen'], 
+                        tempFilter.dietTag, (val) => setState(() => tempFilter = tempFilter.setDietTag(val))),
+                      
+                      _buildSection('Mutfak Tipi', ['Türk', 'İtalyan', 'Fast Food', 'Asya', 'Fit Yemek'], 
+                        tempFilter.cuisine, (val) => setState(() => tempFilter = tempFilter.setCuisine(val))),
+                    ],
+
+                    if (widget.isMapMode) ...[
+                      _buildRatingSection(),
+                      
+                      const SizedBox(height: 8),
+                      SwitchListTile(
+                        title: const Text('Sadece Açık Olanlar', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        subtitle: const Text('Şu an hizmet veren mekanları göster', style: TextStyle(fontSize: 12)),
+                        value: tempFilter.onlyOpenNow ?? false,
+                        activeColor: AppColors.primary,
+                        onChanged: (val) => setState(() => tempFilter = tempFilter.setOnlyOpenNow(val)),
+                      ),
+
+                      const SizedBox(height: 24),
+                      const Divider(),
+                      const SizedBox(height: 24),
+
+                      _buildSection('Öğün', ['Kahvaltı', 'Öğle', 'Akşam', 'Atıştırmalık', 'Tatlı'], 
+                        tempFilter.mealType, (val) => setState(() => tempFilter = tempFilter.setMealType(val))),
+                      
+                      _buildSection('Bütçe', ['Ucuz', 'Orta', 'Pahalı'], 
+                        tempFilter.budget, (val) => setState(() => tempFilter = tempFilter.setBudget(val))),
+                      
+                      _buildSection('Mutfak Tipi', ['Türk', 'İtalyan', 'Fast Food', 'Asya', 'Fit Yemek'], 
+                        tempFilter.cuisine, (val) => setState(() => tempFilter = tempFilter.setCuisine(val))),
+                    ],
                     
-                    _buildSection('Yer', ['Evde', 'Dışarıda', 'Ofiste', 'Öğrenci Evi'], 
-                      tempFilter.place, (val) => setState(() => tempFilter = tempFilter.setPlace(val))),
-                    
-                    _buildTimeSection(),
-                    
-                    _buildSection('Bütçe', ['Ucuz', 'Orta', 'Pahalı'], 
-                      tempFilter.budget, (val) => setState(() => tempFilter = tempFilter.setBudget(val))),
-                    
-                    _buildSection('Beslenme Tipi', ['Sağlıklı', 'Proteinli', 'Hafif', 'Doyurucu', 'Kaçamak', 'Vejetaryen'], 
-                      tempFilter.dietTag, (val) => setState(() => tempFilter = tempFilter.setDietTag(val))),
-                    
-                    _buildSection('Mutfak Tipi', ['Türk', 'İtalyan', 'Fast Food', 'Asya', 'Fit Yemek'], 
-                      tempFilter.cuisine, (val) => setState(() => tempFilter = tempFilter.setCuisine(val))),
-                    
-                    const SizedBox(height: 80), // Padding for bottom actions
+                    const SizedBox(height: 80),
                   ],
                 ),
               ),
-
-              // Bottom Actions
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -138,6 +160,7 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
                   ],
                 ),
               ),
+              SizedBox(height: MediaQuery.of(context).padding.bottom),
             ],
           ),
         );
@@ -157,15 +180,24 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
           children: options.map((opt) {
             final isSelected = selectedValue == opt;
             return ChoiceChip(
+              showCheckmark: false,
               label: Text(opt),
               selected: isSelected,
               onSelected: (selected) => onSelect(selected ? opt : null),
-              selectedColor: AppColors.secondary,
+              selectedColor: AppColors.primary,
+              elevation: isSelected ? 4 : 0,
+              pressElevation: 2,
+              shadowColor: AppColors.primary.withOpacity(0.3),
               labelStyle: TextStyle(
-                color: isSelected ? Colors.white : null,
+                color: isSelected ? Colors.white : AppColors.textSecondary,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: BorderSide(
+                  color: isSelected ? AppColors.primary.withOpacity(0.3) : Colors.grey.withOpacity(0.2),
+                ),
+              ),
             );
           }).toList(),
         ),
@@ -187,15 +219,67 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
           children: times.map((t) {
             final isSelected = tempFilter.maxTime == t;
             return ChoiceChip(
+              showCheckmark: false,
               label: Text(t >= 45 ? '$t+ dk' : '$t dk'),
               selected: isSelected,
               onSelected: (selected) => setState(() => tempFilter = tempFilter.setMaxTime(selected ? t : null)),
-              selectedColor: AppColors.secondary,
+              selectedColor: AppColors.primary,
+              elevation: isSelected ? 4 : 0,
+              pressElevation: 2,
+              shadowColor: AppColors.primary.withOpacity(0.3),
               labelStyle: TextStyle(
-                color: isSelected ? Colors.white : null,
+                color: isSelected ? Colors.white : AppColors.textSecondary,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: BorderSide(
+                  color: isSelected ? AppColors.primary.withOpacity(0.3) : Colors.grey.withOpacity(0.2),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+
+  Widget _buildRatingSection() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final ratings = [4.0, 4.5];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Minimum Puan', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: ratings.map((r) {
+            final isSelected = tempFilter.minRating == r;
+            return ChoiceChip(
+              showCheckmark: false,
+              avatar: Icon(
+                Icons.star_rounded, 
+                size: 18, 
+                color: isSelected ? Colors.white : Colors.amber.shade700
+              ),
+              label: Text('$r Üzeri'),
+              selected: isSelected,
+              onSelected: (selected) => setState(() => tempFilter = tempFilter.setMinRating(selected ? r : null)),
+              selectedColor: AppColors.primary,
+              backgroundColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03),
+              labelStyle: TextStyle(
+                color: isSelected ? Colors.white : AppColors.textSecondary,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15),
+                side: BorderSide(
+                  color: isSelected ? AppColors.primary : Colors.transparent,
+                ),
+              ),
             );
           }).toList(),
         ),

@@ -1,7 +1,9 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/colors.dart';
 import 'banner_ad_widget.dart';
+import 'scale_button.dart';
 
 class MainWrapper extends StatelessWidget {
   final StatefulNavigationShell navigationShell;
@@ -18,30 +20,61 @@ class MainWrapper extends StatelessWidget {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
-      body: navigationShell,
-      bottomNavigationBar: Column(
-        mainAxisSize: MainAxisSize.min,
+      extendBody: true,
+      body: Stack(
         children: [
-          const BannerAdWidget(),
-          Container(
-            padding: EdgeInsets.only(bottom: bottomPadding),
-            height: 70 + bottomPadding,
-            decoration: BoxDecoration(
-              color: isDark ? AppColors.cardDark : Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+          navigationShell,
+          // Floating Bottom Navigation
+          Positioned(
+            left: 20,
+            right: 20,
+            bottom: bottomPadding > 0 ? bottomPadding : 20,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                _buildNavItem(0, Icons.dashboard_rounded, 'Ana Sayfa'),
-                _buildNavItem(1, Icons.favorite_rounded, 'Favoriler'),
-                _buildNavItem(2, Icons.settings_rounded, 'Ayarlar'),
+                const BannerAdWidget(),
+                const SizedBox(height: 12),
+                // Custom glass nav bar – no ClipRRect so the selected pill is never cut off
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(35),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.1),
+                        blurRadius: 30,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(35),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(35),
+                          color: isDark
+                              ? AppColors.cardDark.withValues(alpha: 0.7)
+                              : AppColors.cardLight.withValues(alpha: 0.85),
+                          border: Border.all(
+                            color: (isDark ? Colors.white : Colors.black)
+                                .withValues(alpha: isDark ? 0.08 : 0.05),
+                            width: 0.5,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _buildNavItem(0, Icons.dashboard_rounded, 'Ana Sayfa', isDark),
+                            _buildNavItem(1, Icons.favorite_rounded, 'Favoriler', isDark),
+                            _buildNavItem(2, Icons.settings_rounded, 'Ayarlar', isDark),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -50,36 +83,43 @@ class MainWrapper extends StatelessWidget {
     );
   }
 
-  Widget _buildNavItem(int index, IconData icon, String label) {
+  Widget _buildNavItem(int index, IconData icon, String label, bool isDark) {
     final isSelected = navigationShell.currentIndex == index;
-    return GestureDetector(
+    return ScaleButton(
       onTap: () => navigationShell.goBranch(index),
-      behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary.withOpacity(0.1) : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
+          color: isSelected ? AppColors.primary.withValues(alpha: 0.14) : Colors.transparent,
+          borderRadius: BorderRadius.circular(30),
         ),
-        child: Column(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              color: isSelected ? AppColors.primary : AppColors.textSecondary,
-              size: 26,
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: Icon(
+                icon,
+                key: ValueKey(isSelected),
+                color: isSelected
+                    ? AppColors.primary
+                    : AppColors.textSecondary.withValues(alpha: 0.7),
+                size: 24,
+              ),
             ),
-            if (isSelected)
-              Container(
-                margin: const EdgeInsets.only(top: 4),
-                height: 4,
-                width: 4,
-                decoration: const BoxDecoration(
+            if (isSelected) ...[
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: const TextStyle(
                   color: AppColors.primary,
-                  shape: BoxShape.circle,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
                 ),
               ),
+            ],
           ],
         ),
       ),

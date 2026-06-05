@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../data/models/food_model.dart';
 import '../../core/theme/colors.dart';
+import 'glass_container.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class FoodCard extends StatelessWidget {
   final FoodModel food;
@@ -19,60 +21,45 @@ class FoodCard extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.cardDark : AppColors.cardLight,
-        borderRadius: BorderRadius.circular(32),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.3 : 0.08),
-            blurRadius: 30,
-            offset: const Offset(0, 15),
-          )
-        ],
-        border: Border.all(color: (isDark ? Colors.white : Colors.black).withOpacity(0.05)),
-      ),
+    return GlassContainer(
+      borderRadius: 32,
+      blur: 20,
+      padding: EdgeInsets.zero,
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
+          blurRadius: 40,
+          offset: const Offset(0, 20),
+        )
+      ],
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 1. TOP SECTION: Patterned Gradient & Emoji
+          // 1. TOP SECTION: Glowing Background & Emoji
           Stack(
+            alignment: Alignment.center,
             children: [
+              // Dynamic Glow Effect
               Container(
-                height: 200,
+                height: 240,
+                width: double.infinity,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
+                  gradient: RadialGradient(
                     colors: [
-                      AppColors.primary.withOpacity(0.2),
-                      AppColors.primary.withOpacity(0.02),
+                      AppColors.primary.withValues(alpha: 0.25),
+                      AppColors.primary.withValues(alpha: 0),
                     ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-                ),
-              ),
-              Positioned(
-                top: -30,
-                right: -30,
-                child: Container(
-                  height: 120,
-                  width: 120,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
-                    shape: BoxShape.circle,
+                    radius: 0.7,
                   ),
                 ),
               ),
-              Positioned.fill(
-                child: Center(
-                  child: Text(
-                    food.imageEmoji,
-                    style: const TextStyle(fontSize: 90),
-                  ),
-                ),
-              ),
+              // Emoji with subtle float animation
+              Text(
+                food.imageEmoji,
+                style: const TextStyle(fontSize: 110),
+              ).animate(onPlay: (c) => c.repeat(reverse: true))
+               .moveY(begin: -5, end: 5, duration: 2000.ms, curve: Curves.easeInOut),
             ],
           ),
 
@@ -84,41 +71,44 @@ class FoodCard extends StatelessWidget {
                 Text(
                   food.name,
                   textAlign: TextAlign.center,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontSize: 26, 
+                  style: theme.textTheme.displayLarge?.copyWith(
+                    fontSize: 28, 
                     fontWeight: FontWeight.w900,
-                    letterSpacing: -0.5,
+                    letterSpacing: -1,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
                     color: AppColors.secondary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    food.cuisine,
+                    food.cuisine.toUpperCase(),
                     style: const TextStyle(
                       color: AppColors.secondary, 
-                      fontSize: 12, 
+                      fontSize: 13, 
                       fontWeight: FontWeight.w800,
-                      letterSpacing: 1.1,
+                      letterSpacing: 1.2,
                     ),
                   ),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 40),
 
-                // 3. INFO GRID
-                Row(
+                // 3. INFO CHIPS
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  alignment: WrapAlignment.center,
                   children: [
-                    _buildInfoItem(Icons.timer_outlined, '${food.timeMinutes} dk'),
-                    _buildInfoItem(Icons.payments_outlined, food.budget),
-                    _buildInfoItem(Icons.restaurant_outlined, food.place.first),
-                    _buildInfoItem(Icons.local_fire_department_outlined, food.difficulty),
+                    _buildCompactChip(Icons.timer_outlined, '${food.timeMinutes} dk', Colors.blue),
+                    _buildCompactChip(Icons.payments_outlined, food.budget, Colors.green),
+                    _buildCompactChip(Icons.restaurant_outlined, food.place.first, Colors.orange),
+                    _buildCompactChip(Icons.local_fire_department_outlined, food.difficulty, Colors.red),
                   ],
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 40),
 
                 // 4. DIET TAGS
                 if (food.dietTags.isNotEmpty)
@@ -127,48 +117,48 @@ class FoodCard extends StatelessWidget {
                     runSpacing: 12,
                     alignment: WrapAlignment.center,
                     children: food.dietTags.map((tag) => Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.06),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: AppColors.primary.withOpacity(0.1)),
+                        color: AppColors.primary.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.primary.withOpacity(0.15)),
                       ),
                       child: Text(
                         tag,
                         style: const TextStyle(
                           color: AppColors.primary, 
-                          fontSize: 12, 
+                          fontSize: 13, 
                           fontWeight: FontWeight.bold
                         ),
                       ),
                     )).toList(),
                   ),
-                const SizedBox(height: 28),
+                const SizedBox(height: 32),
 
                 // 5. INGREDIENTS
                 if (food.ingredients.isNotEmpty) ...[
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.shopping_basket_outlined, size: 16, color: AppColors.textSecondary),
+                      const Icon(Icons.shopping_basket_outlined, size: 18, color: AppColors.textSecondary),
                       const SizedBox(width: 8),
                       Text(
                         'MALZEMELER',
                         style: TextStyle(
-                          fontSize: 10,
+                          fontSize: 11,
                           fontWeight: FontWeight.w900,
-                          color: AppColors.textSecondary.withOpacity(0.6),
-                          letterSpacing: 1.5,
+                          color: AppColors.textSecondary.withOpacity(0.7),
+                          letterSpacing: 1.8,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     child: Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
+                      spacing: 10,
+                      runSpacing: 10,
                       alignment: WrapAlignment.center,
                       children: food.ingredients.map((ing) => Text(
                         ing + (ing == food.ingredients.last ? '' : ' • '),
@@ -211,22 +201,22 @@ class FoodCard extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoItem(IconData icon, String label) {
-    return Expanded(
-      child: Column(
+  Widget _buildCompactChip(IconData icon, String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.2), width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: AppColors.textSecondary.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, size: 20, color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: 8),
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 6),
           Text(
             label,
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color),
           ),
         ],
       ),

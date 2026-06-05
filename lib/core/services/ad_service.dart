@@ -73,17 +73,19 @@ class AdService {
     }
     
     _suggestionCount++;
-    if (_suggestionCount >= 5 && _interstitialAd != null) {
+    // 5 tıklamada öneri verilir, 6. tıklamada (yani sayaç 6 olduğunda) reklam gösterilir.
+    if (_suggestionCount >= 6 && _interstitialAd != null) {
       _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
         onAdDismissedFullScreenContent: (ad) {
           ad.dispose();
           _loadInterstitialAd();
-          _suggestionCount = 0;
+          _suggestionCount = 0; // Sayaç temizlenir
           onContinue();
         },
         onAdFailedToShowFullScreenContent: (ad, error) {
           ad.dispose();
           _loadInterstitialAd();
+          _suggestionCount = 0; // Başarısız olsa da devam etsin ve sıfırlansın
           onContinue();
         },
       );
@@ -113,6 +115,41 @@ class AdService {
       _rewardedAd = null;
     } else {
       onFailed();
+    }
+  }
+
+  static String? getBannerAdUnitId(String? routeName) {
+    if (Platform.isAndroid) {
+      switch (routeName) {
+        case '/home':
+          return 'ca-app-pub-2073707860224174/9860684934';
+        case '/suggestion':
+          return 'ca-app-pub-2073707860224174/8573950588';
+        case '/favorites':
+          return 'ca-app-pub-2073707860224174/5797108380';
+        case '/weekly_plan':
+          return 'ca-app-pub-2073707860224174/5204561537';
+        case '/settings':
+          return 'ca-app-pub-2073707860224174/3891479868';
+        default:
+          return 'ca-app-pub-2073707860224174/9860684934'; // Default to Home
+      }
+    } else {
+      // iOS
+      switch (routeName) {
+        case '/home':
+          return 'ca-app-pub-2073707860224174/8920349800';
+        case '/suggestion':
+          return 'ca-app-pub-2073707860224174/4826277266';
+        case '/favorites':
+          return 'ca-app-pub-2073707860224174/3457355278';
+        case '/weekly_plan':
+          return 'ca-app-pub-2073707860224174/9927925086';
+        case '/settings':
+          return 'ca-app-pub-2073707860224174/8074267459';
+        default:
+          return 'ca-app-pub-2073707860224174/8920349800'; // Default to Home
+      }
     }
   }
 }

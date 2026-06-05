@@ -1,6 +1,7 @@
 import '../models/food_model.dart';
 import 'food_dataset_extended.dart';
 import 'food_dataset_extended_2.dart';
+import 'food_dataset_extended_3.dart';
 
 final List<FoodModel> foodDataset = [
   // Kahvaltı (10)
@@ -376,4 +377,6 @@ final List<FoodModel> foodDataset = [
   ),
   ...foodDatasetExtended,
   ...foodDatasetExtended2,
+  ...foodDatasetExtended3,
 ];
+
