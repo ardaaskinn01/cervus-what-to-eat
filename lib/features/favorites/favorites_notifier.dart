@@ -69,6 +69,16 @@ class FavoritesNotifier extends StateNotifier<FavoritesState> {
     _loadData();
   }
 
+  void deleteCustomList(String listId) {
+    final lists = state.customLists.where((l) => l.id != listId).toList();
+    _repo.saveCustomLists(lists);
+    if (state.selectedListId == listId) {
+      state = state.copyWith(selectedListId: null);
+    }
+    _loadData();
+  }
+
+
   void addFoodToList(String foodId, String listId) {
     // If not globally favorite, make it favorite first
     if (!_repo.isFavorite(foodId)) {

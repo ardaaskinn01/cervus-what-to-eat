@@ -67,13 +67,17 @@ class NearbyFilter {
   final double radiusKm;       // 0.1 - 5.0 km
   final bool onlyOpen;         // Sadece açık olanlar
   final double? minRating;     // null, 4.0, 4.5
-  final String? priceLevel;    // null, 'Ucuz', 'Orta', 'Pahalı'
+  final String? mealType;      // Kahvaltı, Öğle vs.
+  final String? cuisine;       // Türk, İtalyan vs.
+  final String? budget;        // Ucuz, Orta, Pahalı
 
   const NearbyFilter({
     this.radiusKm = 2.0,
     this.onlyOpen = false,
     this.minRating,
-    this.priceLevel,
+    this.mealType,
+    this.cuisine,
+    this.budget,
   });
 
   NearbyFilter copyWith({
@@ -81,14 +85,20 @@ class NearbyFilter {
     bool? onlyOpen,
     double? minRating,
     bool clearMinRating = false,
-    String? priceLevel,
-    bool clearPriceLevel = false,
+    String? mealType,
+    bool clearMealType = false,
+    String? cuisine,
+    bool clearCuisine = false,
+    String? budget,
+    bool clearBudget = false,
   }) {
     return NearbyFilter(
       radiusKm: radiusKm ?? this.radiusKm,
       onlyOpen: onlyOpen ?? this.onlyOpen,
       minRating: clearMinRating ? null : (minRating ?? this.minRating),
-      priceLevel: clearPriceLevel ? null : (priceLevel ?? this.priceLevel),
+      mealType: clearMealType ? null : (mealType ?? this.mealType),
+      cuisine: clearCuisine ? null : (cuisine ?? this.cuisine),
+      budget: clearBudget ? null : (budget ?? this.budget),
     );
   }
 
@@ -96,11 +106,14 @@ class NearbyFilter {
     int count = 0;
     if (onlyOpen) count++;
     if (minRating != null) count++;
-    if (priceLevel != null) count++;
-    if (radiusKm != 2.0) count++; // non-default radius
+    if (mealType != null) count++;
+    if (cuisine != null) count++;
+    if (budget != null) count++;
+    if (radiusKm != 2.0) count++;
     return count;
   }
 }
+
 
 class NearbyState {
   final bool isLoading;

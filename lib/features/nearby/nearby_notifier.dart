@@ -8,14 +8,7 @@ import '../../core/services/location_service.dart';
 import '../../core/providers/filter_provider.dart';
 
 final nearbyNotifierProvider = StateNotifierProvider<NearbyNotifier, NearbyState>((ref) {
-  final notifier = NearbyNotifier(ref);
-  
-  // Listen to global filter changes
-  ref.listen(filterProvider, (previous, next) {
-    notifier.loadNearbyWithGlobalFilters();
-  });
-  
-  return notifier;
+  return NearbyNotifier(ref);
 });
 
 class NearbyNotifier extends StateNotifier<NearbyState> {
@@ -41,12 +34,12 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
 
   void setFilter(String filter) {
     state = state.copyWith(activeFilter: filter, clearSelectedPlace: true);
-    loadNearbyWithGlobalFilters();
+    loadNearbyAtPosition(state.userPosition ?? const LatLng(39.9334, 32.8597));
   }
 
   void setSearchQuery(String query) {
     state = state.copyWith(searchQuery: query);
-    loadNearbyWithGlobalFilters();
+    loadNearbyAtPosition(state.userPosition ?? const LatLng(39.9334, 32.8597));
   }
 
   void setPermission(bool granted) {
@@ -63,98 +56,118 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
 
   void updateNearbyFilter(NearbyFilter filter) {
     state = state.copyWith(nearbyFilter: filter);
-    loadNearbyWithGlobalFilters();
+    loadNearbyAtPosition(state.userPosition ?? const LatLng(39.9334, 32.8597));
   }
 
-  /// Convenience method to reload using current state and global filters
-  Future<void> loadNearbyWithGlobalFilters() async {
-    if (state.userPosition != null) {
-      await loadNearby(state.userPosition!, state.activeFilter, state.searchQuery);
-    }
-  }
-
-  /// Called when user pans the map — loads new results for that camera position
   Future<void> loadNearbyAtPosition(LatLng pos) async {
-    await loadNearby(pos, state.activeFilter, state.searchQuery);
-  }
-
-  Future<void> loadNearby(LatLng pos, String filter, String searchQuery) async {
     state = state.copyWith(isLoading: true, error: null);
 
-    final globalFilter = _ref.read(filterProvider);
+    final filter = state.activeFilter;
+    final searchQuery = state.searchQuery;
+    final nearbyFilter = state.nearbyFilter;
+    
+    List<NearbyPlace> allPlaces = [];
 
     try {
-      final Map<String, dynamic> queryParams = {
-        'location': '${pos.latitude},${pos.longitude}',
-        'key': AppStrings.googleMapsApiKey,
-        'type': 'restaurant', // Base type to ensure it's a food place
-      };
+      String? nextPageToken;
+      int pagesLoaded = 0;
 
-      // Combine all keywords: UI Category + Search Query + Global Filters
-      List<String> keywords = [];
-      
-      if (filter != 'Tümü' && filter.isNotEmpty) keywords.add(filter);
-      if (searchQuery.trim().isNotEmpty) keywords.add(searchQuery.trim());
-      
-      // Add global filters to keywords for better relevance
-      if (globalFilter.mealType != null) keywords.add(globalFilter.mealType!);
-      if (globalFilter.cuisine != null) keywords.add(globalFilter.cuisine!);
-      if (globalFilter.dietTag != null) keywords.add(globalFilter.dietTag!);
+      do {
+        final Map<String, dynamic> queryParams = {
+          'location': '${pos.latitude},${pos.longitude}',
+          'key': AppStrings.googleMapsApiKey,
+          'type': 'restaurant',
+        };
 
-      if (keywords.isNotEmpty) {
-        queryParams['keyword'] = keywords.join(' ');
-      }
+        if (nextPageToken != null) {
+          queryParams.clear();
+          queryParams['key'] = AppStrings.googleMapsApiKey;
+          queryParams['pagetoken'] = nextPageToken;
+        } else {
+          // Combine keywords
+          List<String> keywords = [];
+          if (filter != 'Tümü' && filter.isNotEmpty) keywords.add(filter);
+          if (searchQuery.trim().isNotEmpty) keywords.add(searchQuery.trim());
+          
+          // Map-Specific Filters (Independent from Home)
+          if (nearbyFilter.cuisine != null) keywords.add(nearbyFilter.cuisine!);
+          if (nearbyFilter.mealType != null) keywords.add(nearbyFilter.mealType!);
+          if (nearbyFilter.budget != null) keywords.add(nearbyFilter.budget!);
 
-      // Add "Open Now" filter to API if selected
-      if (globalFilter.onlyOpenNow == true) {
-        queryParams['opennow'] = true;
-      }
+          if (keywords.isNotEmpty) {
+            queryParams['keyword'] = keywords.join(' ');
+          }
 
-      // Budget Mapping (Google minprice/maxprice 0-4)
-      if (globalFilter.budget != null) {
-        switch (globalFilter.budget) {
-          case 'Ucuz':
-            queryParams['minprice'] = 0;
-            queryParams['maxprice'] = 1;
-            break;
-          case 'Orta':
-            queryParams['minprice'] = 1;
-            queryParams['maxprice'] = 2;
-            break;
-          case 'Pahalı':
-            queryParams['minprice'] = 3;
-            queryParams['maxprice'] = 4;
-            break;
+          if (nearbyFilter.onlyOpen) {
+            queryParams['opennow'] = true;
+          }
+
+          if (nearbyFilter.budget != null) {
+            switch (nearbyFilter.budget) {
+              case 'Ucuz': queryParams['maxprice'] = 1; break;
+              case 'Orta': queryParams['minprice'] = 2; break;
+              case 'Pahalı': queryParams['minprice'] = 3; break;
+            }
+          }
+
+          if (nearbyFilter.radiusKm <= 0.5) {
+            queryParams['rankby'] = 'distance';
+          } else {
+            queryParams['radius'] = '${(nearbyFilter.radiusKm * 1000).toInt()}';
+          }
         }
-      }
 
-      // Radius and Ranking
-      if (state.nearbyFilter.radiusKm <= 0.5) {
-        queryParams['rankby'] = 'distance';
-        // When rankby=distance, radius must NOT be provided
-      } else {
-        queryParams['radius'] = '${(state.nearbyFilter.radiusKm * 1000).toInt()}';
-      }
 
-      final response = await _dio.get(
-        'https://maps.googleapis.com/maps/api/place/nearbysearch/json',
-        queryParameters: queryParams,
-      );
-
-      if (response.data['status'] == 'OK') {
-        final results = response.data['results'] as List;
-        final places = results.map((e) => NearbyPlace.fromJson(e)).toList();
-        state = state.copyWith(places: places, isLoading: false);
-      } else if (response.data['status'] == 'ZERO_RESULTS') {
-        state = state.copyWith(places: [], isLoading: false);
-      } else {
-        state = state.copyWith(
-          isLoading: false,
-          error: 'Places API Hatası: ${response.data['status']}',
+        final response = await _dio.get(
+          'https://maps.googleapis.com/maps/api/place/nearbysearch/json',
+          queryParameters: queryParams,
         );
+
+        if (response.data['status'] == 'OK' || response.data['status'] == 'ZERO_RESULTS') {
+          if (response.data['status'] == 'OK') {
+            final results = response.data['results'] as List;
+            final newPlaces = results.map((e) => NearbyPlace.fromJson(e)).toList();
+            
+            // Add unique places only
+            for (var p in newPlaces) {
+              if (!allPlaces.any((existing) => existing.placeId == p.placeId)) {
+                allPlaces.add(p);
+              }
+            }
+            
+            // Update state incrementally so markers appear faster
+            state = state.copyWith(places: List.from(allPlaces));
+          }
+          
+          nextPageToken = response.data['next_page_token'];
+          pagesLoaded++;
+          
+          // Only load up to 60 results (3 pages) to avoid excessive API usage
+          if (nextPageToken != null && pagesLoaded < 3) {
+            // Delay required by Google API for token to become valid
+            await Future.delayed(const Duration(milliseconds: 2000));
+          } else {
+            nextPageToken = null;
+          }
+        } else {
+          // If first page fails, show error. If subsequent pages fail, just stop.
+          if (pagesLoaded == 0) {
+            throw Exception('API Hatası: ${response.data['status']}');
+          } else {
+            nextPageToken = null; 
+          }
+        }
+      } while (nextPageToken != null);
+
+      // Final post-fetch filtering for minRating
+      if (nearbyFilter.minRating != null) {
+        allPlaces = allPlaces.where((p) => p.rating >= nearbyFilter.minRating!).toList();
       }
+
+
+      state = state.copyWith(places: allPlaces, isLoading: false);
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: 'Bir hata oluştu: $e');
+      state = state.copyWith(isLoading: false, error: 'Mekanlar yüklenirken bir hata oluştu: $e');
     }
   }
 }

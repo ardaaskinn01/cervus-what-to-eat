@@ -26,30 +26,33 @@ class FilterModel {
   });
 
   FilterModel copyWith({
-    String? mealType,
-    String? place,
-    int? maxTime,
-    String? budget,
-    String? dietTag,
-    String? cuisine,
-    String? moodTag,
-    String? weatherTag,
-    double? minRating,
-    bool? onlyOpenNow,
+    Object? mealType = _sentinel,
+    Object? place = _sentinel,
+    Object? maxTime = _sentinel,
+    Object? budget = _sentinel,
+    Object? dietTag = _sentinel,
+    Object? cuisine = _sentinel,
+    Object? moodTag = _sentinel,
+    Object? weatherTag = _sentinel,
+    Object? minRating = _sentinel,
+    Object? onlyOpenNow = _sentinel,
   }) {
     return FilterModel(
-      mealType: mealType ?? this.mealType,
-      place: place ?? this.place,
-      maxTime: maxTime ?? this.maxTime,
-      budget: budget ?? this.budget,
-      dietTag: dietTag ?? this.dietTag,
-      cuisine: cuisine ?? this.cuisine,
-      moodTag: moodTag ?? this.moodTag,
-      weatherTag: weatherTag ?? this.weatherTag,
-      minRating: minRating ?? this.minRating,
-      onlyOpenNow: onlyOpenNow ?? this.onlyOpenNow,
+      mealType: mealType == _sentinel ? this.mealType : mealType as String?,
+      place: place == _sentinel ? this.place : place as String?,
+      maxTime: maxTime == _sentinel ? this.maxTime : maxTime as int?,
+      budget: budget == _sentinel ? this.budget : budget as String?,
+      dietTag: dietTag == _sentinel ? this.dietTag : dietTag as String?,
+      cuisine: cuisine == _sentinel ? this.cuisine : cuisine as String?,
+      moodTag: moodTag == _sentinel ? this.moodTag : moodTag as String?,
+      weatherTag: weatherTag == _sentinel ? this.weatherTag : weatherTag as String?,
+      minRating: minRating == _sentinel ? this.minRating : minRating as double?,
+      onlyOpenNow: onlyOpenNow == _sentinel ? this.onlyOpenNow : onlyOpenNow as bool?,
     );
   }
+
+  static const _sentinel = Object();
+
 
   FilterModel setMealType(String? value) => copyWith(mealType: value);
   FilterModel setPlace(String? value) => copyWith(place: value);

@@ -74,6 +74,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       {'label': 'Konforlu', 'icon': Icons.home_rounded},
       {'label': 'Hafif', 'icon': Icons.eco_rounded},
       {'label': 'Nostaljik', 'icon': Icons.history_rounded},
+      {'label': 'Keyifli', 'icon': Icons.sentiment_very_satisfied_rounded},
     ];
 
     final List<Map<String, dynamic>> mealTypes = [
@@ -125,72 +126,73 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 style: theme.textTheme.titleLarge?.copyWith(fontSize: 18),
               ),
               const SizedBox(height: 16),
-              SizedBox(
-                height: 75,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: moods.length,
-                  clipBehavior: Clip.none,
-                  itemBuilder: (context, index) {
-                    final mood = moods[index];
-                    final isSelected = state.selectedMood == mood['label'];
-                    
-                    return ScaleButton(
-                      onTap: () => ref.read(homeNotifierProvider.notifier).setMood(mood['label']!),
-                      child: GlassContainer(
-                        width: 95,
-                        borderRadius: 18,
-                        blur: 10,
-                        margin: const EdgeInsets.only(right: 12),
-                        color: isSelected 
-                          ? null 
-                          : (isDark ? Colors.white : Colors.black).withValues(alpha: 0.03),
-                        border: isSelected 
-                          ? Border.all(color: AppColors.primary.withValues(alpha: 0.5), width: 1.5)
-                          : Border.all(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05), width: 0.5),
-                        boxShadow: [
-                          if (isSelected)
-                            BoxShadow(
-                              color: AppColors.primary.withValues(alpha: 0.15),
-                              blurRadius: 15,
-                              offset: const Offset(0, 5),
-                            )
-                        ],
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 300),
-                          decoration: BoxDecoration(
-                            gradient: isSelected ? AppColors.primaryGradient : null,
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                mood['icon'] as IconData,
-                                size: 20,
-                                color: isSelected ? Colors.white : AppColors.primary,
+              
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  childAspectRatio: 1.4,
+                ),
+                itemCount: moods.length,
+                itemBuilder: (context, index) {
+                  final mood = moods[index];
+                  final isSelected = state.selectedMood == mood['label'];
+                  
+                  return ScaleButton(
+                    onTap: () => ref.read(homeNotifierProvider.notifier).setMood(mood['label']!),
+                    child: GlassContainer(
+                      borderRadius: 18,
+                      blur: 10,
+                      padding: EdgeInsets.zero,
+                      color: isSelected 
+                        ? null 
+                        : (isDark ? Colors.white : Colors.black).withValues(alpha: 0.03),
+                      border: isSelected 
+                        ? Border.all(color: AppColors.primary.withValues(alpha: 0.5), width: 1.5)
+                        : Border.all(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05), width: 0.5),
+                      boxShadow: [
+                        if (isSelected)
+                          BoxShadow(
+                            color: AppColors.primary.withValues(alpha: 0.15),
+                            blurRadius: 15,
+                            offset: const Offset(0, 5),
+                          )
+                      ],
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        decoration: BoxDecoration(
+                          gradient: isSelected ? AppColors.primaryGradient : null,
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              mood['icon'] as IconData,
+                              size: 22,
+                              color: isSelected ? Colors.white : AppColors.primary,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              mood['label']!,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: isSelected ? Colors.white : AppColors.textSecondary,
                               ),
-                              const SizedBox(width: 8),
-                              Flexible(
-                                child: Text(
-                                  mood['label']!,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: isSelected ? Colors.white : AppColors.textSecondary,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
                         ),
                       ),
-                    );
-                  },
-                ),
-              ).animate().fade(delay: 200.ms, duration: 600.ms).slideX(begin: 0.1, curve: Curves.easeOut),
+                    ),
+                  );
+                },
+              ).animate().fade(delay: 200.ms, duration: 600.ms).slideY(begin: 0.1, curve: Curves.easeOut),
+
 
               const SizedBox(height: 32),
 

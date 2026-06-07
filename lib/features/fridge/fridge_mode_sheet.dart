@@ -8,6 +8,8 @@ import '../../core/theme/colors.dart';
 import '../suggestion/suggestion_notifier.dart';
 import '../favorites/favorites_notifier.dart';
 
+import 'fridge_notifier.dart';
+
 class FridgeModeSheet extends ConsumerStatefulWidget {
   const FridgeModeSheet({super.key});
 
@@ -37,46 +39,14 @@ class _FridgeModeSheetState extends ConsumerState<FridgeModeSheet> {
     'Zerdeçal', 'Tarçın', 'Sumak', 'Karbonat', 'Kabartma Tozu', 'Vanilya'
   ];
 
-  final Set<String> _selectedIngredients = {};
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
-  List<Map<String, dynamic>> _matchedFoods = [];
 
   List<String> get _filteredIngredients {
     if (_searchQuery.isEmpty) return _commonIngredients;
     return _commonIngredients
         .where((i) => i.toLowerCase().contains(_searchQuery.toLowerCase()))
         .toList();
-  }
-
-  void _calculateMatches() {
-    _matchedFoods.clear();
-    if (_selectedIngredients.isEmpty) {
-      if (mounted) setState(() {});
-      return;
-    }
-
-    for (var food in foodDataset) {
-      int matchCount = 0;
-      for (var reqIng in food.ingredients) {
-        if (_selectedIngredients.any((s) => reqIng.toLowerCase().contains(s.toLowerCase()))) {
-          matchCount++;
-        }
-      }
-
-      if (matchCount > 0) {
-        double ratio = matchCount / food.ingredients.length;
-        _matchedFoods.add({
-          'food': food,
-          'matchCount': matchCount,
-          'total': food.ingredients.length,
-          'ratio': ratio,
-        });
-      }
-    }
-
-    _matchedFoods.sort((a, b) => (b['ratio'] as double).compareTo(a['ratio'] as double));
-    if (mounted) setState(() {});
   }
 
   @override
@@ -87,6 +57,7 @@ class _FridgeModeSheetState extends ConsumerState<FridgeModeSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final state = ref.watch(fridgeNotifierProvider);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
@@ -160,16 +131,13 @@ class _FridgeModeSheetState extends ConsumerState<FridgeModeSheet> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    if (_selectedIngredients.isNotEmpty) ...[
+                    if (state.selectedIngredients.isNotEmpty) ...[
                       Row(
                         children: [
                           const Text('SEÇİLİ MALZEMELER', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: AppColors.primary, letterSpacing: 1.2)),
                           const Spacer(),
                           TextButton(
-                            onPressed: () => setState(() {
-                              _selectedIngredients.clear();
-                              _matchedFoods.clear();
-                            }),
+                            onPressed: () => ref.read(fridgeNotifierProvider.notifier).clearAll(),
                             child: const Text('Hepsini Sil', style: TextStyle(fontSize: 11, color: Colors.redAccent)),
                           ),
                         ],
@@ -178,7 +146,7 @@ class _FridgeModeSheetState extends ConsumerState<FridgeModeSheet> {
                       Wrap(
                         spacing: 8,
                         runSpacing: 10,
-                        children: _selectedIngredients.map((i) => Container(
+                        children: state.selectedIngredients.map((i) => Container(
                           padding: const EdgeInsets.only(left: 14, right: 6, top: 4, bottom: 4),
                           decoration: BoxDecoration(
                             color: AppColors.primary.withOpacity(0.1),
@@ -194,10 +162,7 @@ class _FridgeModeSheetState extends ConsumerState<FridgeModeSheet> {
                                 icon: const Icon(Icons.cancel_rounded, size: 16, color: AppColors.primary),
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints(),
-                                onPressed: () => setState(() {
-                                  _selectedIngredients.remove(i);
-                                  if (_selectedIngredients.isEmpty) _matchedFoods.clear();
-                                }),
+                                onPressed: () => ref.read(fridgeNotifierProvider.notifier).toggleIngredient(i),
                               ),
                             ],
                           ),
@@ -211,17 +176,15 @@ class _FridgeModeSheetState extends ConsumerState<FridgeModeSheet> {
                       spacing: 8,
                       runSpacing: 10,
                       children: _filteredIngredients.map((i) {
-                        final isSelected = _selectedIngredients.contains(i);
+                        final isSelected = state.selectedIngredients.contains(i);
                         return InkWell(
                           onTap: () {
-                            setState(() {
-                              if (isSelected) _selectedIngredients.remove(i);
-                              else {
-                                _selectedIngredients.add(i);
-                                _searchQuery = '';
-                                _searchController.clear();
-                              }
-                            });
+                            ref.read(fridgeNotifierProvider.notifier).toggleIngredient(i);
+                            if (!isSelected) {
+                              _searchQuery = '';
+                              _searchController.clear();
+                              FocusScope.of(context).unfocus();
+                            }
                           },
                           borderRadius: BorderRadius.circular(14),
                           child: AnimatedContainer(
@@ -244,48 +207,20 @@ class _FridgeModeSheetState extends ConsumerState<FridgeModeSheet> {
                       }).toList(),
                     ),
                     const SizedBox(height: 32),
-                    if (_selectedIngredients.isNotEmpty)
-                      SizedBox(
-                        width: double.infinity,
-                        height: 60,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: AppColors.primaryGradient,
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))
-                            ],
-                          ),
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.transparent,
-                              shadowColor: Colors.transparent,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                            ),
-                            onPressed: _calculateMatches,
-                            child: const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.auto_awesome_rounded),
-                                SizedBox(width: 12),
-                                Text('Yemekleri Listele', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ).animate().scale(begin: const Offset(0.8, 0.8), curve: Curves.elasticOut),
-                    const SizedBox(height: 40),
-                    if (_matchedFoods.isNotEmpty) ...[
+                    
+                    if (state.matchedFoods.isNotEmpty) ...[
+                      const Divider(height: 48),
                       Row(
                         children: [
                           const Icon(Icons.restaurant_menu_rounded, size: 20, color: AppColors.primary),
                           const SizedBox(width: 8),
                           Text('UYGUN YEMEKLER', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900, fontSize: 15)),
+                          const Spacer(),
+                          Text('${state.matchedFoods.length} sonuç', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                         ],
                       ),
                       const SizedBox(height: 20),
-                      ..._matchedFoods.map((m) {
+                      ...state.matchedFoods.map((m) {
                         final FoodModel food = m['food'];
                         final isFav = ref.watch(favoritesNotifierProvider.notifier).isFavorite(food.id);
                         return Container(
@@ -293,7 +228,10 @@ class _FridgeModeSheetState extends ConsumerState<FridgeModeSheet> {
                           decoration: BoxDecoration(
                             color: isDark ? Colors.white.withOpacity(0.04) : Colors.white,
                             borderRadius: BorderRadius.circular(22),
-                            border: Border.all(color: AppColors.textSecondary.withOpacity(0.05)),
+                            border: Border.all(color: AppColors.textSecondary.withValues(alpha: 0.05)),
+                            boxShadow: [
+                              BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 4))
+                            ]
                           ),
                           child: InkWell(
                             onTap: () {
@@ -309,7 +247,10 @@ class _FridgeModeSheetState extends ConsumerState<FridgeModeSheet> {
                                   Container(
                                     height: 60, width: 60,
                                     alignment: Alignment.center,
-                                    decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(18)),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primary.withValues(alpha: 0.08), 
+                                      borderRadius: BorderRadius.circular(18)
+                                    ),
                                     child: Text(food.imageEmoji, style: const TextStyle(fontSize: 32)),
                                   ),
                                   const SizedBox(width: 16),
@@ -319,12 +260,22 @@ class _FridgeModeSheetState extends ConsumerState<FridgeModeSheet> {
                                       children: [
                                         Text(food.name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
                                         const SizedBox(height: 4),
-                                        Text('${m['matchCount']}/${m['total']} Malzeme Uygun', style: const TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w700)),
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(4),
+                                          child: LinearProgressIndicator(
+                                            value: m['ratio'],
+                                            backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                                            valueColor: const AlwaysStoppedAnimation(AppColors.primary),
+                                            minHeight: 4,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text('${m['matchCount']}/${m['total']} Malzeme Uygun', style: const TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w700)),
                                       ],
                                     ),
                                   ),
                                   IconButton(
-                                    icon: Icon(isFav ? Icons.favorite_rounded : Icons.favorite_outline_rounded, color: isFav ? Colors.redAccent : AppColors.textSecondary.withOpacity(0.3)),
+                                    icon: Icon(isFav ? Icons.favorite_rounded : Icons.favorite_outline_rounded, color: isFav ? Colors.redAccent : AppColors.textSecondary.withValues(alpha: 0.3)),
                                     onPressed: () => ref.read(favoritesNotifierProvider.notifier).toggleFavorite(food.id),
                                   ),
                                   const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.textSecondary),

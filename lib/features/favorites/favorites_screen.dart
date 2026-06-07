@@ -6,6 +6,7 @@ import '../../core/theme/colors.dart';
 import '../../data/models/food_model.dart';
 import '../../features/nearby/nearby_state.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../shared/widgets/food_card.dart';
 
 class FavoritesScreen extends ConsumerStatefulWidget {
   const FavoritesScreen({super.key});
@@ -76,14 +77,17 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
                 children: [
                   _buildListTab(
                     label: 'Tümü',
+                    id: null,
                     isSelected: state.selectedListId == null,
                     onTap: () => ref.read(favoritesNotifierProvider.notifier).selectList(null),
                   ),
                   ...state.customLists.map((cl) => _buildListTab(
                     label: cl.name,
+                    id: cl.id,
                     isSelected: state.selectedListId == cl.id,
                     onTap: () => ref.read(favoritesNotifierProvider.notifier).selectList(cl.id),
                   )),
+
                   _buildAddButton(),
                 ],
               ),
@@ -134,14 +138,38 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
     );
   }
 
-  Widget _buildListTab({required String label, required bool isSelected, required VoidCallback onTap}) {
+  Widget _buildListTab({required String label, required String? id, required bool isSelected, required VoidCallback onTap}) {
     return Padding(
       padding: const EdgeInsets.only(right: 8),
-      child: ChoiceChip(
-        label: Text(label),
-        selected: isSelected,
-        onSelected: (_) => onTap(),
-        showCheckmark: false,
+      child: GestureDetector(
+        onLongPress: id == null ? null : () => _showDeleteListConfirmation(id, label),
+        child: ChoiceChip(
+          label: Text(label),
+          selected: isSelected,
+          onSelected: (_) => onTap(),
+          showCheckmark: false,
+          avatar: id != null ? const Icon(Icons.folder_open_rounded, size: 14) : null,
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteListConfirmation(String id, String name) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('${name} Listesini Sil?'),
+        content: const Text('Bu liste silinecek. İçindeki yemekler favorilerinden silinmez.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('İptal')),
+          TextButton(
+            onPressed: () {
+              ref.read(favoritesNotifierProvider.notifier).deleteCustomList(id);
+              Navigator.pop(ctx);
+            },
+            child: const Text('Sil', style: TextStyle(color: Colors.red)),
+          ),
+        ],
       ),
     );
   }
@@ -168,84 +196,157 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
   }
 
   Widget _buildGridItem(FoodModel food) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardTheme.color,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.primary.withOpacity(0.05)),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            height: 70,
-            width: 70,
+    final state = ref.watch(favoritesNotifierProvider);
+    return Stack(
+      children: [
+        GestureDetector(
+          onTap: () => _showFoodDetails(food),
+          child: Container(
+            width: double.infinity,
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.08),
-              shape: BoxShape.circle,
+              color: Theme.of(context).cardTheme.color,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: AppColors.primary.withValues(alpha: 0.05)),
             ),
-            child: Center(child: Text(food.imageEmoji, style: const TextStyle(fontSize: 36))),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  height: 70,
+                  width: 70,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(child: Text(food.imageEmoji, style: const TextStyle(fontSize: 36))),
+                ),
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Text(
+                    food.name,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Text(food.cuisine, style: const TextStyle(color: AppColors.textSecondary, fontSize: 10)),
+              ],
+            ),
           ),
-          const SizedBox(height: 12),
-          Text(
-            food.name,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-            textAlign: TextAlign.center,
+        ),
+        Positioned(
+          top: 4,
+          right: 4,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => _showDeleteItemConfirmation(food, state.selectedListId),
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                child: Icon(Icons.close_rounded, size: 18, color: Colors.red.withValues(alpha: 0.7)),
+              ),
+            ),
           ),
-          Text(food.cuisine, style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
-        ],
-      ),
+        ),
+      ],
     ).animate().fade().scale(delay: 50.ms);
   }
 
+
   Widget _buildListView(List<FoodModel> foods) {
+    final state = ref.watch(favoritesNotifierProvider);
     return ListView.separated(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       itemCount: foods.length,
       separatorBuilder: (_, __) => const SizedBox(height: 12),
-      itemBuilder: (context, index) => _buildListItem(foods[index]),
+      itemBuilder: (context, index) => _buildListItem(foods[index], state.selectedListId),
     );
   }
 
-  Widget _buildListItem(FoodModel food) {
+  Widget _buildListItem(FoodModel food, String? selectedListId) {
     return Dismissible(
-      key: ValueKey(food.id),
+      key: ValueKey('${food.id}_${selectedListId ?? "all"}'),
       direction: DismissDirection.endToStart,
       background: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
         decoration: BoxDecoration(color: Colors.redAccent, borderRadius: BorderRadius.circular(16)),
-        child: const Icon(Icons.delete_outline_rounded, color: Colors.white),
+        child: Icon(
+          selectedListId == null ? Icons.delete_outline_rounded : Icons.folder_delete_outlined, 
+          color: Colors.white
+        ),
       ),
       onDismissed: (_) {
-        ref.read(favoritesNotifierProvider.notifier).removeFavorite(food.id);
+        if (selectedListId == null) {
+          ref.read(favoritesNotifierProvider.notifier).removeFavorite(food.id);
+        } else {
+          ref.read(favoritesNotifierProvider.notifier).removeFoodFromList(food.id, selectedListId);
+        }
       },
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardTheme.color,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.black.withOpacity(0.05)),
-        ),
-        child: Row(
-          children: [
-            Text(food.imageEmoji, style: const TextStyle(fontSize: 32)),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(food.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                  Text('${food.timeMinutes} dk • ${food.budget}', style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-                ],
+
+      child: GestureDetector(
+        onTap: () => _showFoodDetails(food),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardTheme.color,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.black.withValues(alpha: 0.05)),
+          ),
+          child: Row(
+            children: [
+              Text(food.imageEmoji, style: const TextStyle(fontSize: 32)),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(food.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                    Text('${food.timeMinutes} dk • ${food.budget}', style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                  ],
+                ),
               ),
-            ),
-            const Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
-          ],
+              IconButton(
+                icon: Icon(Icons.delete_outline_rounded, 
+                  size: 20, 
+                  color: Colors.red.withValues(alpha: 0.5)
+                ),
+                onPressed: () => _showDeleteItemConfirmation(food, selectedListId),
+              ),
+            ],
+          ),
         ),
       ),
     ).animate().fade().slideX(begin: 0.1);
   }
+
+  void _showDeleteItemConfirmation(FoodModel food, String? listId) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(listId == null ? 'Favorilerden Kaldır?' : 'Listeden Kaldır?'),
+        content: Text('${food.name} ${listId == null ? "tüm favorilerinden" : "bu listeden"} kaldırılacak.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('İptal')),
+          TextButton(
+            onPressed: () {
+              if (listId == null) {
+                ref.read(favoritesNotifierProvider.notifier).removeFavorite(food.id);
+              } else {
+                ref.read(favoritesNotifierProvider.notifier).removeFoodFromList(food.id, listId);
+              }
+              Navigator.pop(ctx);
+            },
+            child: const Text('Kaldır', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
 
   Widget _buildEmptyState(ThemeData theme, bool isPlaces) {
     return Center(
@@ -366,6 +467,22 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
             child: const Text('Oluştur'),
           )
         ],
+      ),
+    );
+  }
+
+  void _showFoodDetails(FoodModel food) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        child: SingleChildScrollView(
+          child: FoodCard(
+            food: food,
+            isCompact: true,
+          ),
+        ),
       ),
     );
   }

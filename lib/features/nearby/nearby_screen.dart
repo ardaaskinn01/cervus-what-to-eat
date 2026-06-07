@@ -22,6 +22,7 @@ class NearbyScreen extends ConsumerStatefulWidget {
 
 class _NearbyScreenState extends ConsumerState<NearbyScreen> {
   GoogleMapController? _mapController;
+  final DraggableScrollableController _sheetController = DraggableScrollableController();
 
   final List<String> _categories = [
     "Tümü", "Kebap", "Döner", "Pide", "Pizza", "Burger", "Ev Yemeği", "Sushi", "Kahvaltı", "Tatlı", "Balık"
@@ -38,6 +39,12 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initialize();
     });
+  }
+
+  @override
+  void dispose() {
+    _sheetController.dispose();
+    super.dispose();
   }
 
   Future<void> _initialize() async {
@@ -60,16 +67,8 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
     }
   }
 
-  void _animateToFitResults() {
-    final state = ref.read(nearbyNotifierProvider);
-    final places = state.filteredPlaces;
-    if (places.isEmpty) return;
+  // removed _animateToFitResults as it was unreferenced
 
-    final bounds = _getBounds(places);
-    _mapController?.animateCamera(
-      CameraUpdate.newLatLngBounds(bounds, 80), // 80px padding
-    );
-  }
 
   LatLngBounds _getBounds(List<NearbyPlace> places) {
     double minLat = places.first.latLng.latitude;
@@ -97,11 +96,9 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
       ref.read(nearbyNotifierProvider.notifier).setUserPosition(latLng);
       
       // Load nearby and then animate
-      await ref.read(nearbyNotifierProvider.notifier).loadNearby(
-        latLng,
-        ref.read(nearbyNotifierProvider).activeFilter,
-        ref.read(nearbyNotifierProvider).searchQuery,
-      );
+      // Load nearby and then animate
+      await ref.read(nearbyNotifierProvider.notifier).loadNearbyAtPosition(latLng);
+
 
       _mapController?.animateCamera(
         CameraUpdate.newLatLngZoom(latLng, 14.5),
@@ -113,18 +110,30 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
     ref.listen(nearbyNotifierProvider.select((s) => s.places), (prev, next) {
       if (mounted) setState(() {});
     });
+
+    // Listen for place selection to animate sheet
+    ref.listen(nearbyNotifierProvider.select((s) => s.selectedPlace), (prev, next) {
+      if (next != null && prev?.placeId != next.placeId) {
+        _sheetController.animateTo(
+          0.5,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      } else if (next == null && prev != null) {
+        _sheetController.animateTo(
+          0.22,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   void _smartSelect() {
     final state = ref.read(nearbyNotifierProvider);
     final filtered = state.filteredPlaces;
     if (filtered.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Uygun mekan bulunamadı. Filtreleri genişletin.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      _showCompactSnackBar('Uygun mekan bulunamadı. Filtreleri genişletin.');
       return;
     }
 
@@ -143,35 +152,33 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
     ref.read(nearbyNotifierProvider.notifier).selectPlace(picked);
     _mapController?.animateCamera(CameraUpdate.newLatLngZoom(picked.latLng, 16));
 
+    _showCompactSnackBar('✨ ${picked.name} seçildi (⭐ ${picked.rating.toStringAsFixed(1)})');
+  }
+
+  void _showCompactSnackBar(String message) {
+    ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('✨ ${picked.name} seçildi (⭐ ${picked.rating.toStringAsFixed(1)})'),
+        content: Text(message, style: const TextStyle(fontWeight: FontWeight.w600)),
         behavior: SnackBarBehavior.floating,
+        duration: const Duration(milliseconds: 1200),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 120), // Lifted a bit more for easier reach
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        dismissDirection: DismissDirection.horizontal,
       ),
     );
   }
 
-  void _showFilterSheet() {
-    final current = ref.read(nearbyNotifierProvider).nearbyFilter;
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _NearbyFilterSheet(
-        initial: current,
-        onApply: (newFilter) {
-          ref.read(nearbyNotifierProvider.notifier).updateNearbyFilter(newFilter);
-        },
-      ),
-    );
-  }
+
+  // removed _showFilterSheet as it was unreferenced
+
 
   @override
   Widget build(BuildContext context) {
     _listenToChanges();
     final state = ref.watch(nearbyNotifierProvider);
     final theme = Theme.of(context);
-    final filterCount = state.nearbyFilter.activeFilterCount;
+
 
     if (!state.isPermissionGranted) {
       return _buildPermissionDeniedView();
@@ -195,6 +202,10 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
                   myLocationButtonEnabled: false,
                   minMaxZoomPreference: MinMaxZoomPreference(_minZoom, 20),
                   markers: markers ?? {},
+                  onTap: (_) {
+                    // Deselect when clicking empty map area
+                    ref.read(nearbyNotifierProvider.notifier).selectPlace(null);
+                  },
                   onCameraMove: (pos) {
                     setState(() => _currentZoom = pos.zoom);
                   },
@@ -355,12 +366,15 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
                 ),
               ),
 
+
               // ── Bottom sheet ─────────────────────────────────────────
               DraggableScrollableSheet(
+                controller: _sheetController,
                 initialChildSize: 0.22,
                 minChildSize: 0.08,
                 maxChildSize: 0.9,
                 builder: (context, scrollController) {
+
                   return Container(
                     decoration: BoxDecoration(
                       color: theme.scaffoldBackgroundColor,
@@ -712,204 +726,4 @@ class _PlaceTile extends StatelessWidget {
 
 // ── Filter Bottom Sheet ───────────────────────────────────────────────────────
 
-class _NearbyFilterSheet extends StatefulWidget {
-  final NearbyFilter initial;
-  final void Function(NearbyFilter) onApply;
 
-  const _NearbyFilterSheet({required this.initial, required this.onApply});
-
-  @override
-  State<_NearbyFilterSheet> createState() => _NearbyFilterSheetState();
-}
-
-class _NearbyFilterSheetState extends State<_NearbyFilterSheet> {
-  late double _radius;
-  late bool _onlyOpen;
-  late double? _minRating;
-
-  @override
-  void initState() {
-    super.initState();
-    _radius = widget.initial.radiusKm;
-    _onlyOpen = widget.initial.onlyOpen;
-    _minRating = widget.initial.minRating;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 16,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Handle
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10)),
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Text('Filtreler', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 20),
-
-          // Open now toggle
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: _onlyOpen ? Colors.green.withValues(alpha: 0.12) : Colors.grey.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(Icons.storefront_rounded, color: _onlyOpen ? Colors.green : Colors.grey),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Sadece açık olanlar', style: TextStyle(fontWeight: FontWeight.w600)),
-                  Text(
-                    _onlyOpen ? 'Aktif' : 'Pasif',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: _onlyOpen ? Colors.green : Colors.grey,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-              const Spacer(),
-              Switch(
-                value: _onlyOpen,
-                onChanged: (v) => setState(() => _onlyOpen = v),
-                activeColor: Colors.green,
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-
-          // Rating filter
-          const Text('Minimum Puan', style: TextStyle(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              _RatingChip(label: 'Tümü', selected: _minRating == null, onTap: () => setState(() => _minRating = null)),
-              const SizedBox(width: 8),
-              _RatingChip(label: '⭐ 4.0+', selected: _minRating == 4.0, onTap: () => setState(() => _minRating = 4.0)),
-              const SizedBox(width: 8),
-              _RatingChip(label: '⭐ 4.5+', selected: _minRating == 4.5, onTap: () => setState(() => _minRating = 4.5)),
-            ],
-          ),
-          const SizedBox(height: 20),
-
-          // Radius slider
-          Row(
-            children: [
-              const Text('Mesafe', style: TextStyle(fontWeight: FontWeight.w600)),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  '${_radius.toStringAsFixed(1)} km',
-                  style: const TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          Slider(
-            value: _radius,
-            min: 0.1,
-            max: 5.0,
-            divisions: 49,
-            activeColor: AppColors.primary,
-            onChanged: (v) => setState(() => _radius = v),
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              Text('0.1 km', style: TextStyle(fontSize: 11, color: Colors.grey)),
-              Text('5.0 km', style: TextStyle(fontSize: 11, color: Colors.grey)),
-            ],
-          ),
-          const SizedBox(height: 24),
-
-          // Apply button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              ),
-              onPressed: () {
-                widget.onApply(NearbyFilter(
-                  radiusKm: _radius,
-                  onlyOpen: _onlyOpen,
-                  minRating: _minRating,
-                ));
-                Navigator.pop(context);
-              },
-              child: const Text('Uygula', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RatingChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _RatingChip({required this.label, required this.selected, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.primary : Colors.grey.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: selected ? AppColors.primary : Colors.grey.withValues(alpha: 0.3),
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? Colors.white : Colors.black87,
-            fontWeight: FontWeight.w600,
-            fontSize: 13,
-          ),
-        ),
-      ),
-    );
-  }
-}

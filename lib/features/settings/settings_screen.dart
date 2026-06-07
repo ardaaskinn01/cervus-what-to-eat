@@ -269,23 +269,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final diets = ['Normal', 'Vejetaryen', 'Vegan', 'Glutensiz'];
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: diets.map((d) => ListTile(
-            title: Text(d, style: TextStyle(fontWeight: d == current ? FontWeight.bold : FontWeight.normal)),
-            trailing: d == current ? const Icon(Icons.check_circle_rounded, color: AppColors.primary) : null,
-            onTap: () {
-              ref.read(settingsNotifierProvider.notifier).updateDietType(d);
-              Navigator.pop(ctx);
-            },
-          )).toList(),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: diets.map((d) => ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+              title: Text(d, style: TextStyle(fontWeight: d == current ? FontWeight.bold : FontWeight.normal)),
+              trailing: d == current ? const Icon(Icons.check_circle_rounded, color: AppColors.primary) : null,
+              onTap: () {
+                ref.read(settingsNotifierProvider.notifier).updateDietType(d);
+                Navigator.pop(ctx);
+              },
+            )).toList(),
+          ),
         ),
       ),
     );
   }
+
 
   }
 

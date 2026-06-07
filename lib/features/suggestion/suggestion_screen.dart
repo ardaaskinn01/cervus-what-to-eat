@@ -53,11 +53,14 @@ class _SuggestionScreenState extends ConsumerState<SuggestionScreen> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         automaticallyImplyLeading: false,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded),
           onPressed: () => Navigator.pop(context),
         ),
+
         title: const Text('Günün Önerisi'),
         actions: [
           IconButton(
@@ -87,10 +90,12 @@ class _SuggestionScreenState extends ConsumerState<SuggestionScreen> {
           ),
 
           SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  const Spacer(),
                   // 1. CARD AREA
                   state.isLoading && state.currentFood == null
                       ? const SizedBox(
@@ -118,14 +123,18 @@ class _SuggestionScreenState extends ConsumerState<SuggestionScreen> {
                               },
                               child: Padding(
                                 key: ValueKey(state.currentFood?.id),
-                                padding: const EdgeInsets.only(bottom: 40),
+                                padding: const EdgeInsets.only(bottom: 20),
                                 child: FoodCard(
                                   food: state.currentFood!,
                                   currentMood: homeState.selectedMood,
+                                  isCompact: true,
                                   onLongPress: () {},
                                 ),
+
                               ),
                             ),
+
+                  const SizedBox(height: 20),
 
                   // 2. ACTION BUTTONS
                   Padding(
@@ -134,8 +143,8 @@ class _SuggestionScreenState extends ConsumerState<SuggestionScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
                         _buildRoundButton(
-                          icon: Icons.close_rounded,
-                          color: Colors.redAccent,
+                          icon: Icons.casino_rounded,
+                          color: AppColors.primary,
                           isDark: isDark,
                           onTap: () => ref.read(suggestionNotifierProvider.notifier).suggestNext(),
                         ),
@@ -148,18 +157,23 @@ class _SuggestionScreenState extends ConsumerState<SuggestionScreen> {
                             ref.read(suggestionNotifierProvider.notifier).markAsFavorite();
                             if (!context.mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Favorilere eklendi! ✨')),
+                              const SnackBar(
+                                content: Text('Favorilere eklendi! ✨'),
+                                behavior: SnackBarBehavior.floating,
+                                duration: Duration(seconds: 2),
+                              ),
                             );
                           },
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 100), // Spacing for bottom nav / ad
+                  const Spacer(flex: 2),
                 ],
               ),
             ),
           ),
+
         ],
       ),
     );

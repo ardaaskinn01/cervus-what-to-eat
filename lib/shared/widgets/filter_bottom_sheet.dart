@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/providers/filter_provider.dart';
 import '../../core/theme/colors.dart';
 import '../../data/models/filter_model.dart';
+import '../../features/nearby/nearby_notifier.dart';
 
 class FilterBottomSheet extends ConsumerStatefulWidget {
   final bool isMapMode;
@@ -16,9 +17,21 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
   late FilterModel tempFilter;
 
   @override
+  @override
   void initState() {
     super.initState();
-    tempFilter = ref.read(filterProvider);
+    if (widget.isMapMode) {
+      final nearbyFilter = ref.read(nearbyNotifierProvider).nearbyFilter;
+      tempFilter = FilterModel(
+        minRating: nearbyFilter.minRating,
+        onlyOpenNow: nearbyFilter.onlyOpen,
+        mealType: nearbyFilter.mealType,
+        cuisine: nearbyFilter.cuisine,
+        budget: nearbyFilter.budget,
+      );
+    } else {
+      tempFilter = ref.read(filterProvider);
+    }
   }
 
   @override
@@ -151,7 +164,22 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                         ),
                         onPressed: () {
-                          ref.read(filterProvider.notifier).updateFilter(tempFilter);
+                          if (widget.isMapMode) {
+                            final newNearbyFilter = ref.read(nearbyNotifierProvider).nearbyFilter.copyWith(
+                              minRating: tempFilter.minRating,
+                              onlyOpen: tempFilter.onlyOpenNow ?? false,
+                              mealType: tempFilter.mealType,
+                              cuisine: tempFilter.cuisine,
+                              budget: tempFilter.budget,
+                              clearMinRating: tempFilter.minRating == null,
+                              clearMealType: tempFilter.mealType == null,
+                              clearCuisine: tempFilter.cuisine == null,
+                              clearBudget: tempFilter.budget == null,
+                            );
+                            ref.read(nearbyNotifierProvider.notifier).updateNearbyFilter(newNearbyFilter);
+                          } else {
+                            ref.read(filterProvider.notifier).updateFilter(tempFilter);
+                          }
                           Navigator.pop(context);
                         },
                         child: const Text('Uygula', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
@@ -160,6 +188,7 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
                   ],
                 ),
               ),
+
               SizedBox(height: MediaQuery.of(context).padding.bottom),
             ],
           ),
