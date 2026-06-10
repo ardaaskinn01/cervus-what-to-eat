@@ -97,6 +97,7 @@ class _SuggestionScreenState extends ConsumerState<SuggestionScreen> with Ticker
     _animateSwipe(Offset(screenWidth * 1.5, 0), math.pi / 4).then((_) {
       ref.read(suggestionNotifierProvider.notifier).markAsFavorite();
       _showFeedbackSnackBar('Favorilere eklendi!', Colors.blueAccent);
+      ref.read(suggestionNotifierProvider.notifier).suggestNext();
       _resetAfterAction();
     });
   }
@@ -135,10 +136,14 @@ class _SuggestionScreenState extends ConsumerState<SuggestionScreen> with Ticker
     ).animate(CurvedAnimation(parent: _swipeController, curve: Curves.elasticOut));
 
     _swipeController.forward(from: 0).then((_) {
-      setState(() {
-        _dragOffset = 0;
-        _swipeController.reset();
-      });
+      if (mounted) {
+        setState(() {
+          _dragOffset = 0;
+          _swipeAnimation = Tween<Offset>(begin: Offset.zero, end: Offset.zero).animate(_swipeController);
+          _rotationAnimation = Tween<double>(begin: 0, end: 0).animate(_swipeController);
+          _swipeController.reset();
+        });
+      }
     });
   }
 
