@@ -20,7 +20,7 @@ class RewardedAdButton extends StatelessWidget {
       onPressed: () {
         AdService.instance.showRewardedAd(
           onEarnedReward: () {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('🎉 10 Özel Öneri Kilidi Açıldı!')));
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('10 Özel Öneri Kilidi Açıldı!')));
             // In a real app we would dispatch an action here
           },
           onFailed: () {

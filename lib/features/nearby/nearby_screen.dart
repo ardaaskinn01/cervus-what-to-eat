@@ -29,8 +29,6 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
   ];
 
   double _currentZoom = 14.0;
-
-  // Minimum zoom to prevent loading too many markers when very far out
   static const double _minZoom = 10.0;
 
   @override
@@ -67,38 +65,13 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
     }
   }
 
-  // removed _animateToFitResults as it was unreferenced
-
-
-  LatLngBounds _getBounds(List<NearbyPlace> places) {
-    double minLat = places.first.latLng.latitude;
-    double maxLat = places.first.latLng.latitude;
-    double minLng = places.first.latLng.longitude;
-    double maxLng = places.first.latLng.longitude;
-
-    for (var p in places) {
-      if (p.latLng.latitude < minLat) minLat = p.latLng.latitude;
-      if (p.latLng.latitude > maxLat) maxLat = p.latLng.latitude;
-      if (p.latLng.longitude < minLng) minLng = p.latLng.longitude;
-      if (p.latLng.longitude > maxLng) maxLng = p.latLng.longitude;
-    }
-
-    return LatLngBounds(
-      southwest: LatLng(minLat, minLng),
-      northeast: LatLng(maxLat, maxLng),
-    );
-  }
-
   Future<void> _getUserLocation() async {
     final position = await LocationService.instance.getCurrentPosition();
     if (position != null) {
       final latLng = LatLng(position.latitude, position.longitude);
       ref.read(nearbyNotifierProvider.notifier).setUserPosition(latLng);
       
-      // Load nearby and then animate
-      // Load nearby and then animate
       await ref.read(nearbyNotifierProvider.notifier).loadNearbyAtPosition(latLng);
-
 
       _mapController?.animateCamera(
         CameraUpdate.newLatLngZoom(latLng, 14.5),
@@ -106,12 +79,51 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
     }
   }
 
-  void _listenToChanges() {
-    ref.listen(nearbyNotifierProvider.select((s) => s.places), (prev, next) {
-      if (mounted) setState(() {});
-    });
+  void _smartSelect() {
+    final state = ref.read(nearbyNotifierProvider);
+    final filtered = state.filteredPlaces;
+    if (filtered.isEmpty) {
+      _showCompactSnackBar('Uygun mekan bulunamadı. Filtreleri genişletin.');
+      return;
+    }
 
-    // Listen for place selection to animate sheet
+    final sorted = List<NearbyPlace>.from(filtered)
+      ..sort((a, b) {
+        final aScore = a.rating + (a.isOpen ? 0.5 : 0);
+        final bScore = b.rating + (b.isOpen ? 0.5 : 0);
+        return bScore.compareTo(aScore);
+      });
+
+    final top = sorted.take(5).toList();
+    top.shuffle();
+    final picked = top.first;
+
+    ref.read(nearbyNotifierProvider.notifier).selectPlace(picked);
+    _mapController?.animateCamera(CameraUpdate.newLatLngZoom(picked.latLng, 16));
+
+    _showCompactSnackBar('${picked.name} seçildi (${picked.rating.toStringAsFixed(1)} Puan)');
+  }
+
+  void _showCompactSnackBar(String message) {
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message, style: const TextStyle(fontWeight: FontWeight.w600)),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(milliseconds: 1200),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 120),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        dismissDirection: DismissDirection.horizontal,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(nearbyNotifierProvider);
+    final theme = Theme.of(context);
+
+    // Listen for place selection to animate sheet height
     ref.listen(nearbyNotifierProvider.select((s) => s.selectedPlace), (prev, next) {
       if (next != null && prev?.placeId != next.placeId) {
         _sheetController.animateTo(
@@ -127,58 +139,6 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
         );
       }
     });
-  }
-
-  void _smartSelect() {
-    final state = ref.read(nearbyNotifierProvider);
-    final filtered = state.filteredPlaces;
-    if (filtered.isEmpty) {
-      _showCompactSnackBar('Uygun mekan bulunamadı. Filtreleri genişletin.');
-      return;
-    }
-
-    // Pick highest-rated open place
-    final sorted = List<NearbyPlace>.from(filtered)
-      ..sort((a, b) {
-        final aScore = a.rating + (a.isOpen ? 0.5 : 0);
-        final bScore = b.rating + (b.isOpen ? 0.5 : 0);
-        return bScore.compareTo(aScore);
-      });
-
-    final top = sorted.take(5).toList();
-    top.shuffle();
-    final picked = top.first;
-
-    ref.read(nearbyNotifierProvider.notifier).selectPlace(picked);
-    _mapController?.animateCamera(CameraUpdate.newLatLngZoom(picked.latLng, 16));
-
-    _showCompactSnackBar('✨ ${picked.name} seçildi (⭐ ${picked.rating.toStringAsFixed(1)})');
-  }
-
-  void _showCompactSnackBar(String message) {
-    ScaffoldMessenger.of(context).clearSnackBars();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message, style: const TextStyle(fontWeight: FontWeight.w600)),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(milliseconds: 1200),
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 120), // Lifted a bit more for easier reach
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        dismissDirection: DismissDirection.horizontal,
-      ),
-    );
-  }
-
-
-  // removed _showFilterSheet as it was unreferenced
-
-
-  @override
-  Widget build(BuildContext context) {
-    _listenToChanges();
-    final state = ref.watch(nearbyNotifierProvider);
-    final theme = Theme.of(context);
-
 
     if (!state.isPermissionGranted) {
       return _buildPermissionDeniedView();
@@ -190,7 +150,6 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
         builder: (context, markers) {
           return Stack(
             children: [
-              // ── Full-screen Map ──────────────────────────────────────
               Positioned.fill(
                 child: GoogleMap(
                   initialCameraPosition: const CameraPosition(
@@ -200,17 +159,21 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
                   onMapCreated: (ctrl) => _mapController = ctrl,
                   myLocationEnabled: true,
                   myLocationButtonEnabled: false,
-                  minMaxZoomPreference: MinMaxZoomPreference(_minZoom, 20),
+                  minMaxZoomPreference: const MinMaxZoomPreference(10, 20),
                   markers: markers ?? {},
                   onTap: (_) {
-                    // Deselect when clicking empty map area
                     ref.read(nearbyNotifierProvider.notifier).selectPlace(null);
                   },
                   onCameraMove: (pos) {
-                    setState(() => _currentZoom = pos.zoom);
+                    final bool wasShowingLabels = _currentZoom >= 17.5;
+                    final bool isShowingLabels = pos.zoom >= 17.5;
+                    if (wasShowingLabels != isShowingLabels) {
+                      setState(() => _currentZoom = pos.zoom);
+                    } else {
+                      _currentZoom = pos.zoom;
+                    }
                   },
                   onCameraIdle: () {
-                    // When user stops panning, load restaurants at new center
                     _mapController?.getVisibleRegion().then((bounds) {
                       final center = LatLng(
                         (bounds.northeast.latitude + bounds.southwest.latitude) / 2,
@@ -222,7 +185,6 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
                 ),
               ),
 
-              // ── Top Controls ─────────────────────────────────────────
               SafeArea(
                 child: Column(
                   children: [
@@ -230,7 +192,6 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       child: Row(
                         children: [
-                          // Back button
                           ScaleButton(
                             onTap: () => Navigator.pop(context),
                             child: GlassContainer(
@@ -243,7 +204,6 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
                           ),
                           const SizedBox(width: 12),
 
-                          // Glassmorphism Search Bar
                           Expanded(
                             child: GlassContainer(
                               height: 48,
@@ -266,7 +226,6 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
                               ),
                             ),
                           ),
-                          // Smart select button
                           ScaleButton(
                             onTap: _smartSelect,
                             child: GlassContainer(
@@ -280,7 +239,6 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
                           ),
                           const SizedBox(width: 12),
 
-                          // NEW: FIXED FILTER BUTTON
                           ScaleButton(
                             onTap: () {
                               showModalBottomSheet(
@@ -302,14 +260,11 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
                         ],
                       ),
                     ),
-
-                    // Category filter chips
                     _buildCategoryFilters(state),
                   ],
                 ),
               ),
 
-              // ── Loading indicator ─────────────────────────────────────
               if (state.isLoading)
                 const Positioned(
                   top: 120,
@@ -324,7 +279,6 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
                   ),
                 ),
 
-              // ── Zoom & Location Controls ──────────────────────────────
               Positioned(
                 right: 16,
                 bottom: MediaQuery.of(context).size.height * 0.28,
@@ -337,7 +291,7 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
                         height: 48,
                         borderRadius: 24,
                         blur: 10,
-                        child: Icon(Icons.my_location_rounded, color: AppColors.primary, size: 22),
+                        child: const Icon(Icons.my_location_rounded, color: AppColors.primary, size: 22),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -366,15 +320,12 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
                 ),
               ),
 
-
-              // ── Bottom sheet ─────────────────────────────────────────
               DraggableScrollableSheet(
                 controller: _sheetController,
                 initialChildSize: 0.22,
                 minChildSize: 0.08,
                 maxChildSize: 0.9,
                 builder: (context, scrollController) {
-
                   return Container(
                     decoration: BoxDecoration(
                       color: theme.scaffoldBackgroundColor,
@@ -423,7 +374,6 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
                 if (category == 'Tümü') {
                   ref.read(nearbyNotifierProvider.notifier).setFilter('Tümü');
                 } else if (isSelected) {
-                  // Tapping the already-selected chip → deselect, go back to Tümü
                   ref.read(nearbyNotifierProvider.notifier).setFilter('Tümü');
                 } else {
                   ref.read(nearbyNotifierProvider.notifier).setFilter(category);
@@ -457,7 +407,6 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
       controller: controller,
       padding: const EdgeInsets.symmetric(vertical: 8),
       children: [
-        // Handle bar
         Center(
           child: Container(
             margin: const EdgeInsets.only(bottom: 8),
@@ -469,7 +418,6 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
             ),
           ),
         ),
-        // Count header
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           child: Row(
@@ -489,7 +437,6 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
             ],
           ),
         ),
-        // Place list
         ...places.map((place) => _PlaceTile(
               place: place,
               onTap: () {
@@ -504,72 +451,63 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
   List<MarkerData> _buildCustomMarkers(NearbyState state) {
     return state.filteredPlaces.map((place) {
       final bool isSelected = state.selectedPlace?.placeId == place.placeId;
-      final bool showLabel = _currentZoom >= 15.0;
+      final bool showLabel = isSelected || _currentZoom >= 17.5;
       final Color markerColor = isSelected ? AppColors.primary : (place.isOpen ? Colors.orange : Colors.grey);
 
       return MarkerData(
         marker: Marker(
           markerId: MarkerId(place.placeId),
           position: place.latLng,
+          anchor: const Offset(0.5, 0.5),
           onTap: () {
             ref.read(nearbyNotifierProvider.notifier).selectPlace(place);
             _mapController?.animateCamera(CameraUpdate.newLatLng(place.latLng));
           },
         ),
-        child: AnimatedScale(
-          scale: isSelected ? 1.2 : 1.0,
-          duration: const Duration(milliseconds: 300),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (showLabel || isSelected)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
-                    border: Border.all(color: markerColor.withValues(alpha: 0.5), width: 1.5),
-                  ),
-                  child: Text(
-                    place.name,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: markerColor,
-                    ),
-                    maxLines: 1,
-                  ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (showLabel)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))],
+                  border: Border.all(color: markerColor.withValues(alpha: 0.8), width: 1),
                 ),
-              const SizedBox(height: 4),
-              ScaleButton(
-                onTap: () {
-                  ref.read(nearbyNotifierProvider.notifier).selectPlace(place);
-                  _mapController?.animateCamera(CameraUpdate.newLatLng(place.latLng));
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
+                child: Text(
+                  place.name,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
                     color: markerColor,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
-                    boxShadow: [
-                      BoxShadow(
-                        color: markerColor.withValues(alpha: 0.4),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      )
-                    ],
                   ),
-                  child: Icon(
-                    _getCategoryIcon(place.name, state.activeFilter),
-                    color: Colors.white,
-                    size: 18,
-                  ),
+                  maxLines: 1,
                 ),
               ),
-            ],
-          ),
+            const SizedBox(height: 2),
+            Container(
+              padding: EdgeInsets.all(isSelected ? 10 : 8),
+              decoration: BoxDecoration(
+                color: markerColor,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: markerColor.withValues(alpha: 0.4),
+                    blurRadius: isSelected ? 12 : 6,
+                    offset: const Offset(0, 3),
+                  )
+                ],
+              ),
+              child: Icon(
+                _getCategoryIcon(place.name, state.activeFilter),
+                color: Colors.white,
+                size: isSelected ? 20 : 16,
+              ),
+            ),
+          ],
         ),
       );
     }).toList();
@@ -589,7 +527,7 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
     if (lowerName.contains('deniz')) return Icons.waves_rounded;
     if (lowerName.contains('et')) return Icons.restaurant_menu_rounded;
     
-    return Icons.restaurant_rounded; // Default
+    return Icons.restaurant_rounded;
   }
 
   Widget _buildPermissionDeniedView() {
@@ -626,39 +564,6 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-// ── Small helper widgets ──────────────────────────────────────────────────────
-
-class _MapButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-  final Color color;
-  final Color iconColor;
-
-  const _MapButton({
-    required this.icon,
-    required this.onTap,
-    this.color = Colors.white,
-    this.iconColor = Colors.black,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8)],
-        ),
-        child: Icon(icon, color: iconColor, size: 22),
       ),
     );
   }
@@ -723,7 +628,3 @@ class _PlaceTile extends StatelessWidget {
     );
   }
 }
-
-// ── Filter Bottom Sheet ───────────────────────────────────────────────────────
-
-

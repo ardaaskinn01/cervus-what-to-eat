@@ -51,7 +51,7 @@ class _FoodCardState extends State<FoodCard> {
             children: [
               // Dynamic Glow Effect
               Container(
-                height: widget.isCompact ? 180 : 240,
+                height: widget.isCompact ? 160 : 240,
                 width: double.infinity,
 
                 decoration: BoxDecoration(
@@ -76,7 +76,7 @@ class _FoodCardState extends State<FoodCard> {
 
           // 2. MIDDLE SECTION: Content
           Padding(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(widget.isCompact ? 20 : 24),
             child: Column(
               children: [
                 Text(
@@ -105,7 +105,7 @@ class _FoodCardState extends State<FoodCard> {
                     ),
                   ),
                 ),
-                SizedBox(height: widget.isCompact ? 24 : 40),
+                SizedBox(height: widget.isCompact ? 16 : 40),
 
                 // 3. INFO CHIPS
                 Wrap(
@@ -119,7 +119,7 @@ class _FoodCardState extends State<FoodCard> {
                     _buildCompactChip(Icons.local_fire_department_outlined, widget.food.difficulty, Colors.red),
                   ],
                 ),
-                SizedBox(height: widget.isCompact ? 24 : 40),
+                SizedBox(height: widget.isCompact ? 16 : 40),
 
                 // 4. DIET TAGS - Hidden in compact mode
                 if (!widget.isCompact && widget.food.dietTags.isNotEmpty)

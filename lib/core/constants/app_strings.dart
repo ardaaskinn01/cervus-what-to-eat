@@ -1,5 +1,5 @@
 class AppStrings {
-  static const String appName = 'Bugün Ne Yesem?';
+  static const String appName = 'NeYesek';
   
   // Tabs
   static const String navSuggest = 'Öner';

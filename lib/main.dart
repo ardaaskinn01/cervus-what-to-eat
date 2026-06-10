@@ -50,7 +50,7 @@ class WhatToEatApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsNotifierProvider);
     return MaterialApp.router(
-      title: 'Bugün Ne Yesem?',
+      title: 'NeYesek',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,

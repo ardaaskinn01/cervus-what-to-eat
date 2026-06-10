@@ -24,10 +24,10 @@ class _WeeklyPlanScreenState extends ConsumerState<WeeklyPlanScreen> {
       return;
     }
 
-    StringBuffer text = StringBuffer('Bugün Ne Yesem? App ile Haftalık Yemek Planım 🍽️\n\n');
+    StringBuffer text = StringBuffer('NeYesek ile Haftalık Yemek Planım\n\n');
     for (int d = 1; d <= 7; d++) {
       if (state.plan.containsKey(d)) {
-        text.writeln('📅 ${_days[d-1]}:');
+        text.writeln('${_days[d-1]}:');
         for (var meal in ['Kahvaltı', 'Öğle', 'Akşam']) {
           final foodId = state.plan[d]![meal];
           if (foodId != null) {
@@ -69,7 +69,7 @@ class _WeeklyPlanScreenState extends ConsumerState<WeeklyPlanScreen> {
             tooltip: 'Tüm haftayı otomatik doldur',
             onPressed: () {
               ref.read(weeklyPlanNotifierProvider.notifier).autoFillPlan();
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Haftalık plan akıllı algoritmayla dolduruldu! ✨')));
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Haftalık plan akıllı algoritmayla dolduruldu!')));
             },
           )
         ],

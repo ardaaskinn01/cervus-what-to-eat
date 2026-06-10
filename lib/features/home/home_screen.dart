@@ -108,7 +108,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                         const SizedBox(height: 8),
                         Text(
-                          'Bugün ne yesem?',
+                          'NeYesek',
                           style: theme.textTheme.displayLarge?.copyWith(
                             fontSize: 32,
                             letterSpacing: -1,

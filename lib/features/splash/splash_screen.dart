@@ -46,25 +46,22 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                shape: BoxShape.circle,
-              ),
-              child: const Text(
-                '🍽️',
-                style: TextStyle(fontSize: 80),
+            ClipOval(
+              child: Image.asset(
+                'assets/images/logo.png',
+                width: 160,
+                height: 160,
+                fit: BoxFit.cover,
               ),
             ).animate().scale(duration: 800.ms, curve: Curves.elasticOut).shimmer(delay: 1.seconds),
             const SizedBox(height: 32),
             const Text(
-              'Bugün Ne Yesem?',
+              'NeYesek',
               style: TextStyle(
-                fontSize: 32, 
+                fontSize: 36, 
                 fontWeight: FontWeight.w900, 
                 color: Colors.white,
-                letterSpacing: -1,
+                letterSpacing: -1.5,
               ),
             ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.2),
             const SizedBox(height: 12),
