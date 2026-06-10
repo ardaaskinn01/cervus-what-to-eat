@@ -143,8 +143,11 @@ class _SuggestionScreenState extends ConsumerState<SuggestionScreen> with Ticker
   }
 
   void _resetAfterAction() {
+    if (!mounted) return;
     setState(() {
       _dragOffset = 0;
+      _swipeAnimation = Tween<Offset>(begin: Offset.zero, end: Offset.zero).animate(_swipeController);
+      _rotationAnimation = Tween<double>(begin: 0, end: 0).animate(_swipeController);
       _swipeController.reset();
     });
   }
@@ -179,6 +182,13 @@ class _SuggestionScreenState extends ConsumerState<SuggestionScreen> with Ticker
       if (prev?.selectedMealType != next.selectedMealType || 
           prev?.selectedMood != next.selectedMood) {
         ref.read(suggestionNotifierProvider.notifier).suggestNext();
+      }
+    });
+
+    // Reset swipe state when food changes
+    ref.listen(suggestionNotifierProvider.select((s) => s.currentFood?.id), (prev, next) {
+      if (next != null && prev != next) {
+        _resetAfterAction();
       }
     });
 
