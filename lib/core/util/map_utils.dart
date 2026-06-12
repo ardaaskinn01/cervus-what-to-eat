@@ -1,7 +1,7 @@
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../features/nearby/nearby_state.dart';
+import '../../features/nearby/nearby_state.dart';
 
 class MapUtils {
   static Future<void> launchMap({
