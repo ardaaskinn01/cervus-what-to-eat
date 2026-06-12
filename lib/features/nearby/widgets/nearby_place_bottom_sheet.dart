@@ -10,6 +10,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../favorites/favorites_notifier.dart';
 import '../../../shared/widgets/scale_button.dart';
 import '../../../shared/widgets/glass_container.dart';
+import '../../../core/util/map_utils.dart';
 
 class NearbyPlaceBottomSheet extends ConsumerWidget {
   final ScrollController scrollController;
@@ -143,7 +144,11 @@ class NearbyPlaceBottomSheet extends ConsumerWidget {
           children: [
             Expanded(
               child: ScaleButton(
-                onTap: () => _handleDirections(context),
+                onTap: () => MapUtils.launchMap(
+                  context: context,
+                  place: place,
+                  isDirections: true,
+                ),
                 child: Container(
                   height: 56,
                   decoration: BoxDecoration(
@@ -215,7 +220,11 @@ class NearbyPlaceBottomSheet extends ConsumerWidget {
         const SizedBox(height: 16),
         
         ScaleButton(
-          onTap: () => _handleOpenInMaps(context),
+          onTap: () => MapUtils.launchMap(
+            context: context,
+            place: place,
+            isDirections: false,
+          ),
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 12),
             alignment: Alignment.center,
@@ -225,7 +234,7 @@ class NearbyPlaceBottomSheet extends ConsumerWidget {
                 Icon(Icons.map_rounded, size: 16, color: AppColors.textSecondary.withValues(alpha: 0.6)),
                 const SizedBox(width: 6),
                 Text(
-                  Platform.isIOS ? "Haritalar'da Görüntüle" : "Google Haritalar'da Görüntüle", 
+                  "Haritada Görüntüle", 
                   style: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.7), fontSize: 13, fontWeight: FontWeight.w500)
                 ),
               ],
@@ -304,84 +313,5 @@ class NearbyPlaceBottomSheet extends ConsumerWidget {
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
-  }
-
-  void _handleDirections(BuildContext context) {
-    if (Platform.isIOS) {
-      _showMapSelectionDialog(
-        context: context,
-        appleUrl: "themes://maps.apple.com/?daddr=${place.latLng.latitude},${place.latLng.longitude}",
-        googleUrl: "https://www.google.com/maps/dir/?api=1&destination=${place.latLng.latitude},${place.latLng.longitude}&destination_place_id=${place.placeId}",
-        title: "Yol Tarifi Al",
-      );
-    } else {
-      _launchURL("https://www.google.com/maps/dir/?api=1&destination=${place.latLng.latitude},${place.latLng.longitude}&destination_place_id=${place.placeId}");
-    }
-  }
-
-  void _handleOpenInMaps(BuildContext context) {
-    if (Platform.isIOS) {
-      _showMapSelectionDialog(
-        context: context,
-        appleUrl: "maps://maps.apple.com/?q=${place.latLng.latitude},${place.latLng.longitude}",
-        googleUrl: "https://www.google.com/maps/search/?api=1&query=${place.latLng.latitude},${place.latLng.longitude}&query_place_id=${place.placeId}",
-        title: "Haritada Görüntüle",
-      );
-    } else {
-      _launchURL("https://www.google.com/maps/search/?api=1&query=${place.latLng.latitude},${place.latLng.longitude}&query_place_id=${place.placeId}");
-    }
-  }
-
-  void _showMapSelectionDialog({
-    required BuildContext context,
-    required String appleUrl,
-    required String googleUrl,
-    required String title,
-  }) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 36,
-              height: 5,
-              decoration: BoxDecoration(
-                color: Colors.grey.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 24),
-            ListTile(
-              leading: const Icon(Icons.apple, size: 28),
-              title: const Text("Apple Haritalar", style: TextStyle(fontWeight: FontWeight.w600)),
-              onTap: () {
-                Navigator.pop(context);
-                _launchURL(appleUrl);
-              },
-            ),
-            const Divider(height: 1),
-            ListTile(
-              leading: const Icon(Icons.map_rounded, size: 28, color: Colors.blue),
-              title: const Text("Google Haritalar", style: TextStyle(fontWeight: FontWeight.w600)),
-              onTap: () {
-                Navigator.pop(context);
-                _launchURL(googleUrl);
-              },
-            ),
-            const SizedBox(height: 16),
-          ],
-        ),
-      ),
-    );
   }
 }

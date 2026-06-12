@@ -7,6 +7,7 @@ import '../../data/models/food_model.dart';
 import '../../features/nearby/nearby_state.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../shared/widgets/food_card.dart';
+import '../../core/util/map_utils.dart';
 
 class FavoritesScreen extends ConsumerStatefulWidget {
   const FavoritesScreen({super.key});
@@ -423,10 +424,10 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: () {
-                      final uri = Uri.parse("https://www.google.com/maps/search/?api=1&query=${place.latLng.latitude},${place.latLng.longitude}&query_place_id=${place.placeId}");
-                      launchUrl(uri);
-                    },
+                    onPressed: () => MapUtils.launchMap(
+                      context: context,
+                      place: place,
+                    ),
                     icon: const Icon(Icons.directions, size: 16),
                     label: const Text('Haritada Aç'),
                     style: ElevatedButton.styleFrom(
