@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'settings_notifier.dart';
 import '../../core/theme/colors.dart';
 
@@ -99,7 +100,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ], theme),
           const SizedBox(height: 24),
 
-
+          // 4. DİĞER / HAKKINDA
+          _buildGroupTitle('Diğer'),
+          _buildSettingsGroup([
+            _buildSettingRow(
+              icon: Icons.privacy_tip_outlined,
+              color: Colors.teal,
+              title: 'Gizlilik Politikası',
+              onTap: () => _launchPrivacyPolicy(),
+            ),
+          ], theme),
+          const SizedBox(height: 24),
         ],
       ),
     );
@@ -291,6 +302,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-
+  Future<void> _launchPrivacyPolicy() async {
+    final url = Uri.parse('https://cervusdigital.com/pickeat/privacy-policy/');
+    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+      debugPrint('Could not launch $url');
+    }
   }
+}
 

@@ -6,6 +6,7 @@ class NearbyPlace {
   final String address;
   final String? photoRef;
   final double rating;
+  final int? userRatingsTotal;
   final bool isOpen;
   final LatLng latLng;
   final int? priceLevel;
@@ -16,6 +17,7 @@ class NearbyPlace {
     required this.address,
     this.photoRef,
     required this.rating,
+    this.userRatingsTotal,
     required this.isOpen,
     required this.latLng,
     this.priceLevel,
@@ -30,6 +32,7 @@ class NearbyPlace {
         address: json['vicinity'] ?? '',
         photoRef: (json['photos'] as List?)?.first?['photo_reference'],
         rating: (json['rating'] ?? 0.0).toDouble(),
+        userRatingsTotal: json['user_ratings_total'],
         isOpen: json['opening_hours']?['open_now'] ?? false,
         latLng: LatLng(location['lat'], location['lng']),
         priceLevel: json['price_level'],
@@ -41,6 +44,7 @@ class NearbyPlace {
         address: json['address'] ?? json['vicinity'] ?? '',
         photoRef: json['photoRef'],
         rating: (json['rating'] ?? 0.0).toDouble(),
+        userRatingsTotal: json['userRatingsTotal'],
         isOpen: json['isOpen'] ?? true,
         latLng: LatLng(json['lat'] ?? 0.0, json['lng'] ?? 0.0),
         priceLevel: json['priceLevel'] ?? json['price_level'],
@@ -55,6 +59,7 @@ class NearbyPlace {
       'address': address,
       'photoRef': photoRef,
       'rating': rating,
+      'userRatingsTotal': userRatingsTotal,
       'isOpen': isOpen,
       'lat': latLng.latitude,
       'lng': latLng.longitude,
@@ -117,6 +122,7 @@ class NearbyFilter {
 
 class NearbyState {
   final bool isLoading;
+  final bool isLoadingMore;
   final List<NearbyPlace> places;
   final NearbyPlace? selectedPlace;
   final String activeFilter;
@@ -125,9 +131,12 @@ class NearbyState {
   final bool isPermissionGranted;
   final String? error;
   final NearbyFilter nearbyFilter;
+  final String? nextPageToken;
+  final bool hasMorePages;
 
   NearbyState({
     this.isLoading = false,
+    this.isLoadingMore = false,
     this.places = const [],
     this.selectedPlace,
     this.activeFilter = 'Tümü',
@@ -136,10 +145,13 @@ class NearbyState {
     this.isPermissionGranted = true,
     this.error,
     this.nearbyFilter = const NearbyFilter(),
+    this.nextPageToken,
+    this.hasMorePages = false,
   });
 
   NearbyState copyWith({
     bool? isLoading,
+    bool? isLoadingMore,
     List<NearbyPlace>? places,
     NearbyPlace? selectedPlace,
     bool clearSelectedPlace = false,
@@ -149,9 +161,13 @@ class NearbyState {
     bool? isPermissionGranted,
     String? error,
     NearbyFilter? nearbyFilter,
+    String? nextPageToken,
+    bool clearNextPageToken = false,
+    bool? hasMorePages,
   }) {
     return NearbyState(
       isLoading: isLoading ?? this.isLoading,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       places: places ?? this.places,
       selectedPlace: clearSelectedPlace ? null : (selectedPlace ?? this.selectedPlace),
       activeFilter: activeFilter ?? this.activeFilter,
@@ -160,6 +176,8 @@ class NearbyState {
       isPermissionGranted: isPermissionGranted ?? this.isPermissionGranted,
       error: error ?? this.error,
       nearbyFilter: nearbyFilter ?? this.nearbyFilter,
+      nextPageToken: clearNextPageToken ? null : (nextPageToken ?? this.nextPageToken),
+      hasMorePages: hasMorePages ?? this.hasMorePages,
     );
   }
 

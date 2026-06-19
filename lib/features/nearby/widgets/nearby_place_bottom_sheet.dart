@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'dart:io' show Platform;
 import '../nearby_state.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/constants/app_strings.dart';
@@ -308,10 +306,4 @@ class NearbyPlaceBottomSheet extends ConsumerWidget {
     return List.generate(level, (_) => '₺').join();
   }
 
-  Future<void> _launchURL(String url) async {
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-  }
 }
